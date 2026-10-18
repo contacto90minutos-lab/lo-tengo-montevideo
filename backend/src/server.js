@@ -12,20 +12,16 @@ const server = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 
-// Sube un nivel desde src/ para llegar a la raíz donde están los portales
-const rootDir = path.resolve(__dirname, '../');
+// Ubicación exacta de la carpeta raíz (lo-tengo-final) desde backend/src/
+const rootDir = path.resolve(__dirname, '../../');
 
-// Servir archivos estáticos de cada portal
-app.use('/cliente', express.static(path.join(rootDir, 'cliente/public')));
+// Servir archivos estáticos
+app.use(express.static(path.join(rootDir, 'cliente/public')));
 app.use('/empresa', express.static(path.join(rootDir, 'empresa')));
 app.use('/cadete', express.static(path.join(rootDir, 'cadete')));
 app.use('/admin', express.static(path.join(rootDir, 'admin')));
 
-// Rutas explícitas para abrir cada portal desde el navegador en Render
-app.get('/', (req, res) => {
-  res.sendFile(path.join(rootDir, 'cliente/public/index.html'));
-});
-
+// Enviar explícitamente el index.html de cada app
 app.get('/empresa', (req, res) => {
   res.sendFile(path.join(rootDir, 'empresa/index.html'));
 });
