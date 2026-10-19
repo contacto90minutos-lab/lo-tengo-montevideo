@@ -371,7 +371,7 @@
         let temporizadoresGlobales = {};
         let ultimoConteoPedidos = 0;
 
-        document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", async () => {
             // Ocultar Splash Screen después de 1.5 segundos
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
@@ -382,12 +382,12 @@
             }, 1500);
 
             inicializarBaseDatosEmpresasPorDefecto();
+            await sincronizarPedidosDesdeServidor();
             verificarSesionEmpresa();
             configurarEventosLoginEmpresa();
-            sincronizarPedidosDesdeServidor();
             
-            setInterval(() => {
-                sincronizarPedidosDesdeServidor();
+            setInterval(async () => {
+                await sincronizarPedidosDesdeServidor();
                 let sesion = localStorage.getItem('lt_sesion_empresa');
                 if (sesion) {
                     let empActual = obtenerEmpresaActualizada();
@@ -406,6 +406,8 @@
                         mostrarPedidosEntrantesComercio();
                     } else if (contenedor && document.getElementById('bandera-vista-envios')) {
                         mostrarPedidosEnRutaComercio();
+                    } else if (contenedor && document.getElementById('main-content-empresa') && !document.getElementById('screen-login-empresa')) {
+                        mostrarDashboardEmpresa();
                     }
                 }
             });
@@ -416,7 +418,7 @@
                 let response = await fetch(`${BACKEND_URL}/api/pedidos`);
                 if (response.ok) {
                     let pedidosRemotos = await response.json();
-                    if (pedidosRemotos && Array.isArray(pedidosRemotos) && pedidosRemotos.length > 0) {
+                    if (pedidosRemotos && Array.isArray(pedidosRemotos)) {
                         let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
                         let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
                         if (base.length > 0 && sesion) {
@@ -427,10 +429,13 @@
                                 
                                 let nuevosEntrantes = 0;
                                 pedidosRemotos.forEach(pR => {
-                                    if (!mapaLocal.has(String(pR.id).trim())) {
-                                        nuevosEntrantes++;
+                                    // Filtrar solo los pedidos correspondientes a este RUT de comercio
+                                    if (String(pR.rutComercio || '').trim() === String(emp.rut).trim()) {
+                                        if (!mapaLocal.has(String(pR.id).trim())) {
+                                            nuevosEntrantes++;
+                                        }
+                                        mapaLocal.set(String(pR.id).trim(), pR);
                                     }
-                                    mapaLocal.set(String(pR.id).trim(), pR);
                                 });
 
                                 emp.pedidos = Array.from(mapaLocal.values());
@@ -692,8 +697,12 @@
             }
         }
 
-        function mostrarDashboardEmpresa() {
+        async function mostrarDashboardEmpresa() {
             actualizarMenuActivoEmpresa(0);
+            
+            // Forzar actualización inmediata desde el servidor antes de renderizar
+            await sincronizarPedidosDesdeServidor();
+
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -858,8 +867,9 @@
             mostrarGestionCatalogo();
         }
 
-        function mostrarPedidosEntrantesComercio() {
+        async function mostrarPedidosEntrantesComercio() {
             actualizarMenuActivoEmpresa(2);
+            await sincronizarPedidosDesdeServidor();
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -964,8 +974,9 @@
             pedidosActivos.forEach(p => iniciarCronometroEnVivo(p.id, p.tiempoInicioEstado));
         }
 
-        function mostrarPedidosEnRutaComercio() {
+        async function mostrarPedidosEnRutaComercio() {
             actualizarMenuActivoEmpresa(3);
+            await sincronizarPedidosDesdeServidor();
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -999,8 +1010,9 @@
             `;
         }
 
-        function mostrarHistorialFinancieroComercio() {
+        async function mostrarHistorialFinancieroComercio() {
             actualizarMenuActivoEmpresa(4);
+            await sincronizarPedidosDesdeServidor();
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -1088,6 +1100,7 @@
             if (pedido) {
                 pedido.estado = nuevoEstado;
                 pedido.tiempoInicioEstado = Date.now();
+                pedido.rutComercio = emp.rut;
 
                 localStorage.setItem('lt_base_empresas', JSON.stringify(base));
                 localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
