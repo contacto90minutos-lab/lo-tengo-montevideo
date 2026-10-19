@@ -631,13 +631,22 @@
             base.push(nuevaEmpresa);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
 
+            // Sincronización REST con el servidor en Render
             try {
+                await fetch(`${BACKEND_URL}/api/empresas/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevaEmpresa)
+                });
+
                 await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ rol: 'empresa', nombre: nuevaEmpresa.nombre, identificador: nuevaEmpresa.rut, giroComercial: nuevaEmpresa.giro })
                 });
-            } catch(e) {}
+            } catch(e) {
+                console.warn("Modo offline: Empresa guardada localmente", e);
+            }
 
             localStorage.setItem('lt_sesion_empresa', JSON.stringify(nuevaEmpresa));
             alert("✅ ¡Comercio registrado con éxito y sincronizado con la App Cliente!");
@@ -1135,56 +1144,4 @@
             let emp = obtenerEmpresaActualizada();
             if (!emp || !emp.pedidos) { alert("⚠️ No hay sesión activa."); return; }
 
-            let pedido = emp.pedidos.find(p => Number(p.id) === Number(idPedido));
-            if (!pedido) { alert("⚠️ No se encontró el pedido #" + idPedido); return; }
-
-            let itemsTicket = (pedido.items || []).map(i => `
-                <tr>
-                    <td>${i.cantidad || 1}x ${i.nombre}</td>
-                    <td style="text-align:right;">$${(i.precio * (i.cantidad || 1))}</td>
-                </tr>
-            `).join('') || `<tr><td colspan="2">${pedido.descripcion || 'Pedido de catálogo'}</td></tr>`;
-
-            let ventana = window.open('', '_blank', 'width=400,height=600');
-            ventana.document.write(`
-                <html>
-                <head><title>Ticket Pedido #${pedido.id}</title></head>
-                <body style="font-family: monospace; padding: 15px; font-size: 14px;">
-                    <h3 style="text-align:center; margin:0;">LO TENGO</h3>
-                    <p style="text-align:center; font-size:11px; margin:2px 0;">Comprobante para Comercio</p>
-                    <hr>
-                    <p><b>Comercio:</b> ${emp.nombre}</p>
-                    <p><b>Pedido ID:</b> #${pedido.id}</p>
-                    <p><b>Cliente:</b> ${pedido.cliente} (${pedido.telefonoCliente || 'Sin tel'})</p>
-                    <p><b>Modalidad:</b> ${pedido.tipoEntrega === 'mostrador' ? 'Retirar en Local (Pickup)' : 'Envío a Domicilio'}</p>
-                    <hr>
-                    <table style="width:100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="border-bottom: 1px solid #000;">
-                                <th style="text-align:left;">Ítem</th>
-                                <th style="text-align:right;">Subtotal</th>
-                            </tr>
-                        </thead>
-                        <tbody>${itemsTicket}</tbody>
-                    </table>
-                    <hr>
-                    <h3 style="text-align:right;">Total: $${pedido.total}</h3>
-                    <hr>
-                    <h2 style="text-align:center; margin:10px 0;">PIN: ${pedido.codigoVerificacion}</h2>
-                    <script>window.onload = function() { window.print(); }<\/script>
-                </body>
-                </html>
-            `);
-            ventana.document.close();
-        };
-
-        function actualizarMenuActivoEmpresa(index) {
-            const botones = document.querySelectorAll('.bottom-nav .nav-item');
-            botones.forEach((btn, idx) => {
-                if (idx === index) btn.classList.add('active');
-                else btn.classList.remove('active');
-            });
-        }
-    </script>
-</body>
-</html>
+            let pedido = emp.pedidos.find(p => Number(p.id) === Number
