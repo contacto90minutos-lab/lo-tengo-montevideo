@@ -15,6 +15,7 @@
             --bg-light: #f8f9fa;
             --border: #e5e7eb;
             --radius: 14px;
+            --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
 
         body {
@@ -104,19 +105,21 @@
         .btn-volver-atras {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: #E5E7EB;
+            gap: 8px;
+            background: #FFFFFF;
             color: var(--primary);
-            border: none;
-            padding: 8px 14px;
-            font-size: 12px;
+            border: 1.5px solid var(--border);
+            padding: 10px 16px;
+            font-size: 13px;
             font-weight: 700;
-            border-radius: 10px;
+            border-radius: var(--radius);
             cursor: pointer;
             width: auto;
-            margin-bottom: 14px;
+            box-shadow: var(--shadow-subtle);
+            margin-bottom: 16px;
+            transition: all 0.2s;
         }
-        .btn-volver-atras:hover { background: #D1D5DB; }
+        .btn-volver-atras:hover { background: #F3F4F6; border-color: var(--secondary); transform: translateY(-1px); }
 
         .section-title {
             font-size: 16px;
@@ -240,7 +243,9 @@
 
             <!-- 2. REGISTRO DE CADETES -->
             <div id="screen-registro-cadete" style="display: none;">
-                <button type="button" class="btn-volver-atras" onclick="irLoginCadete()">← Volver al login</button>
+                <button type="button" class="btn-volver-atras" onclick="irLoginCadete()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al login
+                </button>
                 <h3 style="color: var(--primary); margin-top: 0;">Registro de Cadete</h3>
                 <label>Nombre Completo:</label>
                 <input type="text" id="regCadNombre" placeholder="Ej: Carlos Gómez">
@@ -262,7 +267,9 @@
 
             <!-- 3. RECUPERAR CONTRASEÑA -->
             <div id="screen-recuperar-cadete" style="display: none;">
-                <button type="button" class="btn-volver-atras" onclick="irLoginCadete()">← Volver al login</button>
+                <button type="button" class="btn-volver-atras" onclick="irLoginCadete()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al login
+                </button>
                 <h3 style="color: var(--primary); margin-top: 0;">Recuperar Contraseña</h3>
                 <p style="font-size: 13px; color: #666;">Ingresá tu Cédula de Identidad (CI) para restablecer tu contraseña.</p>
                 <label>Cédula de Identidad:</label>
@@ -281,7 +288,7 @@
         </div>
     </div>
 
-    <!-- Script General de Lógica e Integración Transversal -->
+    <!-- Script Sincronizado con Render y Polling -->
     <script>
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
@@ -290,6 +297,7 @@
         document.addEventListener("DOMContentLoaded", () => {
             verificarSesionCadete();
             configurarEventosLoginCadete();
+            sincronizarPedidosDesdeServidor();
             
             window.addEventListener('storage', () => {
                 let cadete = obtenerCadeteActualizado();
@@ -301,12 +309,44 @@
             });
 
             setInterval(() => {
+                sincronizarPedidosDesdeServidor();
                 let cadete = obtenerCadeteActualizado();
                 if (cadete) {
                     revisarNuevosPedidosCadete(false);
                 }
             }, 2000);
         });
+
+        async function sincronizarPedidosDesdeServidor() {
+            try {
+                let response = await fetch(`${BACKEND_URL}/api/pedidos`);
+                if (response.ok) {
+                    let pedidosRemotos = await response.json();
+                    if (pedidosRemotos && Array.isArray(pedidosRemotos) && pedidosRemotos.length > 0) {
+                        let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+                        if (baseEmpresas.length > 0) {
+                            let emp = baseEmpresas[0];
+                            let mapaLocal = new Map();
+                            (emp.pedidos || []).forEach(p => mapaLocal.set(String(p.id).trim(), p));
+                            
+                            pedidosRemotos.forEach(pR => {
+                                mapaLocal.set(String(pR.id).trim(), pR);
+                            });
+
+                            emp.pedidos = Array.from(mapaLocal.values());
+                            localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
+
+                            let cadete = obtenerCadeteActualizado();
+                            if (cadete) {
+                                revisarNuevosPedidosCadete(true);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // Modo offline respaldado por localStorage
+            }
+        }
 
         function reproducirAlertaVoz(mensaje) {
             try {
@@ -547,6 +587,13 @@
                             p.cadeteAsignado = sesion.nombre;
                             p.ciCadete = sesion.ci;
                             encontradoEnSistema = true;
+
+                            // Sincronizar con Render
+                            fetch(`${BACKEND_URL}/api/pedidos`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(p)
+                            }).catch(err => console.warn("Modo offline en tomar pedido", err));
                         }
                     });
                 }
@@ -683,6 +730,12 @@
                     emp.pedidos.forEach(p => {
                         if (String(p.id).trim() === String(idPedido).trim()) {
                             p.estado = 'En camino hacia el cliente';
+                            // Sincronizar estado con Render
+                            fetch(`${BACKEND_URL}/api/pedidos`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(p)
+                            }).catch(err => console.warn("Modo offline", err));
                         }
                     });
                 }
@@ -726,6 +779,12 @@
                     emp.pedidos.forEach(p => {
                         if (String(p.id).trim() === String(idPedido).trim()) {
                             p.estado = 'Entregado y Cerrado';
+                            // Sincronizar cierre con Render
+                            fetch(`${BACKEND_URL}/api/pedidos`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(p)
+                            }).catch(err => console.warn("Modo offline", err));
                         }
                     });
                 }

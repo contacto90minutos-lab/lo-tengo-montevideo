@@ -13,6 +13,7 @@
             --bg-light: #f8f9fa;
             --border: #e5e7eb;
             --radius: 14px;
+            --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
 
         body {
@@ -101,19 +102,21 @@
         .btn-volver-atras {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: #E5E7EB;
+            gap: 8px;
+            background: #FFFFFF;
             color: var(--primary);
-            border: none;
-            padding: 8px 14px;
-            font-size: 12px;
+            border: 1.5px solid var(--border);
+            padding: 10px 16px;
+            font-size: 13px;
             font-weight: 700;
-            border-radius: 10px;
+            border-radius: var(--radius);
             cursor: pointer;
             width: auto;
-            margin-bottom: 14px;
+            box-shadow: var(--shadow-subtle);
+            margin-bottom: 16px;
+            transition: all 0.2s;
         }
-        .btn-volver-atras:hover { background: #D1D5DB; }
+        .btn-volver-atras:hover { background: #F3F4F6; border-color: var(--secondary); transform: translateY(-1px); }
 
         .gestion-card {
             background: #fff;
@@ -234,7 +237,9 @@
 
             <!-- Registro de Empresas con Selector de Giro y Carga de Logo -->
             <div id="screen-registro-empresa" style="display: none;">
-                <button type="button" class="btn-volver-atras" onclick="irLoginEmpresa()">← Volver al login</button>
+                <button type="button" class="btn-volver-atras" onclick="irLoginEmpresa()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al login
+                </button>
                 <h3 style="color: var(--primary); margin-top: 0;">Registro de Local</h3>
                 <label>Nombre del Comercio:</label>
                 <input type="text" id="regEmpNombre" placeholder="Ej: Tienda Pepito">
@@ -274,36 +279,26 @@
         </div>
     </div>
 
-    <!-- Script Completo Sincronizado para el Panel de Empresas -->
+    <!-- Script Sincronizado con Render y Alerta Sonora -->
     <script>
-        // URL del backend configurada en Render
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
         let temporizadoresGlobales = {};
-        let ultimoHashPedidos = "";
+        let ultimoConteoPedidos = 0;
 
         document.addEventListener("DOMContentLoaded", () => {
             inicializarBaseDatosEmpresasPorDefecto();
             verificarSesionEmpresa();
             configurarEventosLoginEmpresa();
+            sincronizarPedidosDesdeServidor();
             
             setInterval(() => {
+                sincronizarPedidosDesdeServidor();
                 let sesion = localStorage.getItem('lt_sesion_empresa');
                 if (sesion) {
                     let empActual = obtenerEmpresaActualizada();
                     if (empActual) {
                         actualizarContadorPedidosBadge(empActual.rut);
-                        
-                        let stringPedidos = JSON.stringify(empActual.pedidos || []);
-                        if (stringPedidos !== ultimoHashPedidos) {
-                            ultimoHashPedidos = stringPedidos;
-                            const contenedor = document.getElementById('main-content-empresa');
-                            if (contenedor && document.getElementById('bandera-vista-pedidos')) {
-                                mostrarPedidosEntrantesComercio();
-                            } else if (contenedor && document.getElementById('bandera-vista-envios')) {
-                                mostrarPedidosEnRutaComercio();
-                            }
-                        }
                     }
                 }
             }, 2000);
@@ -321,6 +316,65 @@
                 }
             });
         });
+
+        async function sincronizarPedidosDesdeServidor() {
+            try {
+                let response = await fetch(`${BACKEND_URL}/api/pedidos`);
+                if (response.ok) {
+                    let pedidosRemotos = await response.json();
+                    if (pedidosRemotos && Array.isArray(pedidosRemotos) && pedidosRemotos.length > 0) {
+                        let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+                        let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
+                        if (base.length > 0 && sesion) {
+                            let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
+                            if (emp) {
+                                let mapaLocal = new Map();
+                                (emp.pedidos || []).forEach(p => mapaLocal.set(String(p.id).trim(), p));
+                                
+                                let nuevosEntrantes = 0;
+                                pedidosRemotos.forEach(pR => {
+                                    if (!mapaLocal.has(String(pR.id).trim())) {
+                                        nuevosEntrantes++;
+                                    }
+                                    mapaLocal.set(String(pR.id).trim(), pR);
+                                });
+
+                                emp.pedidos = Array.from(mapaLocal.values());
+                                localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+                                localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
+
+                                let pendientesActuales = emp.pedidos.filter(p => {
+                                    let st = (p.estado || '').toLowerCase().trim();
+                                    return st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
+                                }).length;
+
+                                if (pendientesActuales > ultimoConteoPedidos && nuevosEntrantes > 0) {
+                                    reproducirAlertaNuevaComanda();
+                                }
+                                ultimoConteoPedidos = pendientesActuales;
+                                actualizarContadorPedidosBadge(emp.rut);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                // Modo offline respaldado por localStorage
+            }
+        }
+
+        function reproducirAlertaNuevaComanda() {
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                    let utterance = new SpeechSynthesisUtterance("¡Nuevo pedido recibido en cocina!");
+                    utterance.lang = 'es-UY';
+                    utterance.rate = 1.0;
+                    window.speechSynthesis.speak(utterance);
+                }
+            } catch (err) {
+                console.error("Error voz:", err);
+            }
+        }
 
         function inicializarBaseDatosEmpresasPorDefecto() {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
@@ -540,7 +594,6 @@
                     </div>
                 </div>
 
-                <!-- BANNER DE PROMOCIÓN DE DESTACADOS ($500 / 7 días) -->
                 <div style="background: linear-gradient(135deg, #7C3AED, #9333EA); color: white; padding: 18px; border-radius: var(--radius); margin-bottom: 18px; box-shadow: 0 4px 15px rgba(124,58,237,0.25);">
                     <div style="font-size: 10px; font-weight: 900; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; display: inline-block; margin-bottom: 6px;">PROMOCIÓN EXCLUSIVA</div>
                     <h3 style="margin: 0 0 6px 0; font-size: 17px; font-weight: 900;">⭐ ¡Destacá tus Productos!</h3>
@@ -587,7 +640,9 @@
             `).join('') || '<p style="text-align:center; color:#666;">No tenés productos cargados aún.</p>';
 
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
+                </button>
                 <div class="section-title"><span>📦 Mi Catálogo Exclusivo</span></div>
                 <div style="background:#fff; border:1px solid var(--border); padding:15px; border-radius:var(--radius); margin-bottom:15px;">
                     <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">Agregar Nuevo Artículo</h4>
@@ -759,7 +814,9 @@
             }).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos pendientes en preparación.</p>';
 
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
+                </button>
                 <div id="bandera-vista-pedidos"></div>
                 <div class="section-title">
                     <span>🛎️ Pedidos en Cocina (Nuevos Arriba)</span>
@@ -767,14 +824,6 @@
                 </div>
                 ${htmlPedidos}
             `;
-
-            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let indexEmp = base.findIndex(e => String(e.rut).trim() === String(emp.rut).trim());
-            if (indexEmp !== -1) {
-                base[indexEmp] = emp;
-                localStorage.setItem('lt_base_empresas', JSON.stringify(base));
-                localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
-            }
 
             pedidosActivos.forEach(p => iniciarCronometroEnVivo(p.id, p.tiempoInicioEstado));
         }
@@ -802,7 +851,9 @@
             `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos pendientes de retiro.</p>';
 
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
+                </button>
                 <div id="bandera-vista-envios"></div>
                 <div class="section-title">
                     <span>🛵 Pedidos Liberados</span>
@@ -855,7 +906,9 @@
             let netoTotal = brutoTotal - comisionesTotal;
 
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
+                </button>
                 <div class="section-title"><span>💰 Historial y Liquidación</span></div>
                 <div style="background:linear-gradient(135deg, #137333, #0d5123); color:white; padding:15px; border-radius:var(--radius); margin-bottom:15px;">
                     <h4 style="margin:0 0 8px 0; font-size:14px;">Resumen Financiero Acumulado</h4>
@@ -902,6 +955,13 @@
 
                 localStorage.setItem('lt_base_empresas', JSON.stringify(base));
                 localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
+
+                // Sincronizar estado en backend de Render
+                fetch(`${BACKEND_URL}/api/pedidos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pedido)
+                }).catch(e => console.warn("Modo offline en cambio de estado", e));
 
                 let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
                 let pCliente = pedidosCliente.find(p => Number(p.id) === Number(idPedido));

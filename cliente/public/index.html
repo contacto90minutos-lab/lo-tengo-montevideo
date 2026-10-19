@@ -81,20 +81,21 @@
         .btn-volver-atras {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            background: #E5E7EB;
+            gap: 8px;
+            background: #FFFFFF;
             color: var(--text-main);
-            border: none;
-            padding: 8px 14px;
-            font-size: 12px;
+            border: 1.5px solid var(--card-border);
+            padding: 10px 16px;
+            font-size: 13px;
             font-weight: 700;
             border-radius: var(--radius-md);
             cursor: pointer;
             width: auto;
-            box-shadow: none;
+            box-shadow: var(--shadow-subtle);
             margin-bottom: 16px;
+            transition: all 0.2s;
         }
-        .btn-volver-atras:hover { background: #D1D5DB; transform: none; }
+        .btn-volver-atras:hover { background: #F3F4F6; border-color: var(--text-muted); transform: translateY(-1px); }
 
         .search-container { background: #F9FAFB; padding: 12px 18px; border-radius: var(--radius-md); display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border: 1.5px solid var(--card-border); }
         .search-container input { border: none; background: transparent; margin: 0; padding: 0; outline: none; font-size: 15px; color: var(--text-main); }
@@ -114,12 +115,17 @@
         .comercio-card { background: var(--card-bg); border: 1.5px solid var(--card-border); border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow-subtle); }
         .comercio-avatar { width: 75px; height: 75px; border-radius: var(--radius-md); object-fit: cover; background: #E5E7EB; flex-shrink: 0; }
 
-        .badge-estado { padding: 5px 10px; border-radius: 6px; font-size: 11px; font-weight: 800; display: inline-block; }
-        .estado-buscando { background: #FEF3C7; color: #B45309; animation: pulse 1.5s infinite; }
-        .estado-proceso { background: #FFEDD5; color: #C2410C; }
-        .estado-pronto { background: #D1FAE5; color: #047857; }
-        .estado-camino { background: #DBEAFE; color: #1D4ED8; }
+        .badge-estado { padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; display: inline-block; }
+        .estado-recibido { background: #E0F2FE; color: #0369A1; }
+        .estado-preparacion { background: #FFEDD5; color: #C2410C; }
+        .estado-listo { background: #FEF3C7; color: #B45309; }
+        .estado-camino { background: #DBEAFE; color: #1D4ED8; animation: pulse 1.5s infinite; }
+        .estado-entregado { background: #D1FAE5; color: #047857; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+        /* Botones de propina interactivos */
+        .btn-propina-opcion { padding: 8px; font-size: 12px; font-weight: 700; border-radius: 8px; border: 1.5px solid var(--card-border); background: #E5E7EB; color: var(--text-main); cursor: pointer; box-shadow: none; transition: all 0.2s; }
+        .btn-propina-opcion.activo { background: var(--primary); color: #fff; border-color: var(--primary); }
 
         .bottom-nav { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--card-border); display: flex; justify-content: space-around; padding: 12px 0; z-index: 10; }
         .nav-item { background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-weight: 600; }
@@ -161,7 +167,9 @@
 
             <!-- Pantalla Registro -->
             <div id="screen-registro" style="display: none;">
-                <button type="button" class="btn-volver-atras" onclick="irLogin()">← Volver al login</button>
+                <button type="button" class="btn-volver-atras" onclick="irLogin()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al login
+                </button>
                 <h3 style="color: var(--text-main); margin-top: 0; font-size: 22px; font-weight: 900;">Crear Cuenta</h3>
                 <label>Nombre y Apellido:</label>
                 <input type="text" id="regNombre" placeholder="Tu nombre">
@@ -192,22 +200,49 @@
         </div>
     </div>
     <script>
-        // URL del backend configurada en Render
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
         document.addEventListener("DOMContentLoaded", () => {
             verificarSesionCliente();
             configurarEventosLogin();
             inicializarDatosDemoSiEsNecesario();
+            sincronizarPedidosDesdeServidor();
 
             window.addEventListener('storage', () => {
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
             });
 
+            // Polling en vivo cada 2 segundos con Render
             setInterval(() => {
+                sincronizarPedidosDesdeServidor();
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
             }, 2000);
         });
+
+        async function sincronizarPedidosDesdeServidor() {
+            try {
+                let response = await fetch(`${BACKEND_URL}/api/pedidos`);
+                if (response.ok) {
+                    let pedidosRemotos = await response.json();
+                    if (pedidosRemotos && Array.isArray(pedidosRemotos)) {
+                        let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+                        if (base.length > 0) {
+                            let mapaLocal = new Map();
+                            (base[0].pedidos || []).forEach(p => mapaLocal.set(String(p.id).trim(), p));
+                            
+                            pedidosRemotos.forEach(pR => {
+                                mapaLocal.set(String(pR.id).trim(), pR);
+                            });
+
+                            base[0].pedidos = Array.from(mapaLocal.values());
+                            localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+                        }
+                    }
+                }
+            } catch (e) {
+                // Modo offline respaldado por localStorage
+            }
+        }
 
         function inicializarDatosDemoSiEsNecesario() {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
@@ -367,7 +402,9 @@
             `).join('') || '<p style="text-align:center; color:var(--text-muted); padding:30px;">No hay productos en outlet.</p>';
 
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
+                </button>
                 <div class="outlet-banner" style="margin-bottom:22px;">
                     <div>
                         <h3 style="margin:0; font-size:20px; font-weight:900;">🔥 ZONA OUTLET EXCLUSIVA</h3>
@@ -397,7 +434,9 @@
             `).join('') || '<p style="text-align:center; color:var(--text-muted); padding:20px;">Sin productos.</p>';
 
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
+                </button>
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
                     <h3 style="margin:0; font-size:18px; font-weight:900;">${emp.nombre}</h3>
                 </div>
@@ -410,7 +449,7 @@
         }
 
         function iniciarSeleccionUbicacionPedido(rut, productoId) {
-            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa'));
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => e.rut === rut);
             let p = emp.productos.find(prod => prod.id === productoId);
@@ -418,13 +457,15 @@
 
             const container = document.getElementById('main-content');
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="verCatalogoComercio('${rut}')">← Volver al Catálogo</button>
+                <button type="button" class="btn-volver-atras" onclick="verCatalogoComercio('${rut}')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Catálogo
+                </button>
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
                     <h3 style="margin:0; font-size:18px; font-weight:900;">💳 Resumen y Pago</h3>
                 </div>
 
-                <label>Dirección de Entrega:</label>
-                <input type="text" id="dirEntregaFinal" value="${sesion.direccion}" placeholder="Dirección en Montevideo">
+                <label>Dirección de Entrega (Editable):</label>
+                <input type="text" id="dirEntregaFinal" value="${sesion.direccion || ''}" placeholder="Calle, número y barrio en Montevideo">
 
                 <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border); font-size:13px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>${p.nombre}:</span> <b>$${p.precio}</b></div>
@@ -432,9 +473,9 @@
                     
                     <label style="font-size:12px; margin-bottom:6px; color:var(--primary);">🪙 Propina 100% para el cadete:</label>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
-                        <button type="button" onclick="setPropina(0)" style="padding:6px; font-size:12px; background:#E5E7EB; color:var(--text-main); box-shadow:none;">$0</button>
-                        <button type="button" onclick="setPropina(35)" style="padding:6px; font-size:12px; background:var(--primary); color:#fff; box-shadow:none;">$35</button>
-                        <button type="button" onclick="setPropina(55)" style="padding:6px; font-size:12px; background:#E5E7EB; color:var(--text-main); box-shadow:none;">$55</button>
+                        <button type="button" id="btn-prop-0" class="btn-propina-opcion" onclick="setPropina(0)">$0</button>
+                        <button type="button" id="btn-prop-35" class="btn-propina-opcion activo" onclick="setPropina(35)">$35</button>
+                        <button type="button" id="btn-prop-55" class="btn-propina-opcion" onclick="setPropina(55)">$55</button>
                     </div>
                     <input type="number" id="inputPropina" value="35" min="0" step="5" oninput="actualizarTotal(${totalBase})" style="margin:0; padding:8px;">
 
@@ -450,6 +491,9 @@
 
         function setPropina(m) {
             document.getElementById('inputPropina').value = m;
+            document.querySelectorAll('.btn-propina-opcion').forEach(btn => btn.classList.remove('activo'));
+            let btnActivo = document.getElementById(`btn-prop-${m}`);
+            if (btnActivo) btnActivo.classList.add('activo');
             document.getElementById('inputPropina').dispatchEvent(new Event('input'));
         }
 
@@ -464,16 +508,16 @@
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => e.rut === rut);
             let p = emp.productos.find(prod => prod.id === productoId);
-            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa'));
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
             let total = p.precio + 90 + propina;
 
             let nuevoPedido = {
                 id: Date.now(),
-                cliente: sesion.nombre,
-                telefonoCliente: sesion.telefono,
+                cliente: sesion.nombre || 'Cliente Montevideo',
+                telefonoCliente: sesion.telefono || '099000000',
                 direccion: dir,
                 total: total,
-                estado: 'Buscando cadete más cercano a origen',
+                estado: 'Recibido',
                 items: [
                     { nombre: p.nombre, precio: p.precio, cantidad: 1 },
                     { nombre: 'Costo de Envío', precio: 90, cantidad: 1 },
@@ -482,13 +526,11 @@
                 codigoVerificacion: Math.floor(1000 + Math.random() * 9000).toString()
             };
 
-            // Guardado local y sincronización para pruebas offline
             if (!emp.pedidos) emp.pedidos = [];
             emp.pedidos.push(nuevoPedido);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
             window.dispatchEvent(new Event('storage'));
 
-            // Intentar sincronizar con el backend en Render
             try {
                 await fetch(`${BACKEND_URL}/api/pedidos`, {
                     method: 'POST',
@@ -512,7 +554,9 @@
         function mostrarFormularioCadeteria() {
             actualizarMenuActivo(2);
             document.getElementById('main-content').innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
+                </button>
                 <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">🛵 Cadetería Express</h3>
                 <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Punto A a B con múltiples paradas y mapa en Montevideo.</p>
 
@@ -546,9 +590,9 @@
                 <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border);">
                     <label style="font-size:12px; margin-bottom:6px; color:var(--primary);">🪙 Propina 100% para el cadete:</label>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
-                        <button type="button" onclick="setPropinaCadete(0)" style="padding:6px; font-size:12px; background:#E5E7EB; color:var(--text-main); box-shadow:none;">$0</button>
-                        <button type="button" onclick="setPropinaCadete(35)" style="padding:6px; font-size:12px; background:var(--primary); color:#fff; box-shadow:none;">$35</button>
-                        <button type="button" onclick="setPropinaCadete(55)" style="padding:6px; font-size:12px; background:#E5E7EB; color:var(--text-main); box-shadow:none;">$55</button>
+                        <button type="button" id="btn-prop-cad-0" class="btn-propina-opcion" onclick="setPropinaCadete(0)">$0</button>
+                        <button type="button" id="btn-prop-cad-35" class="btn-propina-opcion activo" onclick="setPropinaCadete(35)">$35</button>
+                        <button type="button" id="btn-prop-cad-55" class="btn-propina-opcion" onclick="setPropinaCadete(55)">$55</button>
                     </div>
                     <input type="number" id="inputPropinaCadete" value="35" min="0" step="5" oninput="actualizarCalculoCadeteria()" style="margin:0; padding:8px;">
                 </div>
@@ -576,6 +620,9 @@
 
         function setPropinaCadete(m) {
             document.getElementById('inputPropinaCadete').value = m;
+            document.querySelectorAll('[id^="btn-prop-cad-"]').forEach(btn => btn.classList.remove('activo'));
+            let btnActivo = document.getElementById(`btn-prop-cad-${m}`);
+            if (btnActivo) btnActivo.classList.add('activo');
             actualizarCalculoCadeteria();
         }
 
@@ -653,11 +700,11 @@
 
             let nuevoPedido = {
                 id: Date.now(),
-                cliente: sesion.nombre || 'Cliente',
+                cliente: sesion.nombre || 'Cliente Montevideo',
                 telefonoCliente: sesion.telefono || '099000000',
                 direccion: primerDestino,
                 total: totalFinal,
-                estado: 'Buscando cadete más cercano a origen',
+                estado: 'Recibido',
                 descripcion: `Cadetería (${tipoVehiculoCadete}) desde [${origen}] con ${destinosValidos.length} destino(s) - ${desc}`,
                 items: [
                     { nombre: `Envío Express (${tipoVehiculoCadete})`, precio: subtotalServicio, cantidad: 1 },
@@ -684,7 +731,7 @@
                 console.warn("No se pudo conectar con Render, respaldado localmente.", e);
             }
 
-            alert(`✅ ¡Buscando cadete más cercano a origen por $${totalFinal}!\n🔑 PIN de seguridad obligatorio: [ ${nuevoPedido.codigoVerificacion} ]`);
+            alert(`✅ ¡Envío express solicitado por $${totalFinal}!\n🔑 PIN de seguridad obligatorio: [ ${nuevoPedido.codigoVerificacion} ]`);
             mostrarPedidosActivos();
         }
 
@@ -701,46 +748,70 @@
 
             base.forEach(emp => {
                 (emp.pedidos || []).forEach(p => {
-                    if (p.cliente === sesion.nombre) misPedidos.push({ ...p, empresaNombre: emp.nombre });
+                    if (!sesion.nombre || p.cliente === sesion.nombre || sesion.nombre === 'Cliente Montevideo') {
+                        misPedidos.push({ ...p, empresaNombre: emp.nombre });
+                    }
                 });
             });
 
             misPedidos.sort((a, b) => b.id - a.id);
 
             let html = misPedidos.map(p => {
-                let claseBadge = p.estado.includes('Buscando') ? 'estado-buscando' : (p.estado.includes('Entregado') ? 'estado-pronto' : 'estado-proceso');
-                let itemsTexto = (p.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ');
+                let st = (p.estado || 'Recibido').toLowerCase();
+                let claseBadge = 'estado-recibido';
+                let textoEstado = p.estado;
 
-                let esCerrado = p.estado.includes('Entregado') || p.estado.includes('Cerrado');
+                if (st.includes('preparación') || st.includes('proceso')) { claseBadge = 'estado-preparacion'; textoEstado = '👨‍🍳 En preparación'; }
+                else if (st.includes('listo') || st.includes('retirar')) { claseBadge = 'estado-listo'; textoEstado = '📦 Listo para retiro'; }
+                else if (st.includes('camino') || st.includes('ruta')) { claseBadge = 'estado-camino'; textoEstado = '🛵 En camino'; }
+                else if (st.includes('entregado') || st.includes('cerrado')) { claseBadge = 'estado-entregado'; textoEstado = '✅ Entregado'; }
+                else { textoEstado = '⏳ ' + p.estado; }
+
+                let itemsTexto = (p.items || []).map(i => `${i.cantidad}x ${i.nombre}`).join(', ');
+                let esCerrado = st.includes('entregado') || st.includes('cerrado');
                 let seccionCalificacion = '';
 
                 if (esCerrado) {
                     if (!p.calificadoCliente) {
                         seccionCalificacion = `
-                            <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:12px; border-radius:var(--radius-md); margin-top:12px; text-align:center;">
-                                <span style="font-size:12px; font-weight:800; color:#15803D; display:block; margin-bottom:6px;">⭐ ¡Calificá tu experiencia!</span>
-                                <div style="display:flex; justify-content:center; gap:8px; margin-bottom:8px;">
-                                    <button type="button" onclick="calificarPedido('${p.id}', 5)" style="width:auto; padding:6px 12px; font-size:12px; background:#22C55E; box-shadow:none;">⭐⭐⭐⭐⭐</button>
-                                    <button type="button" onclick="calificarPedido('${p.id}', 3)" style="width:auto; padding:6px 12px; font-size:12px; background:#EAB308; box-shadow:none;">⭐⭐⭐</button>
+                            <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:14px; border-radius:var(--radius-md); margin-top:12px; text-align:center;">
+                                <span style="font-size:13px; font-weight:800; color:#15803D; display:block; margin-bottom:8px;">😊 ¿Cómo estuvo tu experiencia?</span>
+                                <div style="display:flex; justify-content:center; gap:8px;">
+                                    <button type="button" onclick="calificarPedido('${p.id}', 1)" style="width:auto; padding:8px 10px; font-size:16px; background:#EF4444; box-shadow:none;" title="Pésimo">😠</button>
+                                    <button type="button" onclick="calificarPedido('${p.id}', 3)" style="width:auto; padding:8px 10px; font-size:16px; background:#F59E0B; box-shadow:none;" title="Regular">😐</button>
+                                    <button type="button" onclick="calificarPedido('${p.id}', 4)" style="width:auto; padding:8px 10px; font-size:16px; background:#10B981; box-shadow:none;" title="Bueno">😊</button>
+                                    <button type="button" onclick="calificarPedido('${p.id}', 5)" style="width:auto; padding:8px 10px; font-size:16px; background:#059669; box-shadow:none;" title="Excelente">🔥</button>
                                 </div>
                             </div>
                         `;
                     } else {
-                        seccionCalificacion = `<p style="text-align:center; font-size:12px; color:var(--success); font-weight:bold; margin-top:8px;">⭐ ¡Gracias por calificar este pedido!</p>`;
+                        seccionCalificacion = `<p style="text-align:center; font-size:12px; color:var(--success); font-weight:bold; margin-top:8px;">⭐ ¡Gracias por calificar tu experiencia!</p>`;
                     }
+                }
+
+                // Alerta de proximidad de 200m si está en camino
+                let alertaProximidad = '';
+                if (st.includes('camino') || st.includes('ruta')) {
+                    alertaProximidad = `
+                        <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:10px; border-radius:8px; margin-top:10px; font-size:12px; color:#1E40AF; font-weight:700; text-align:center;">
+                            🛵 Cadete a menos de 200m: ¡Podés ir bajando para recibir tu pedido!
+                        </div>
+                    `;
                 }
 
                 return `
                     <div class="comercio-card" style="display:block; border-left: 5px solid var(--primary); margin-bottom: 14px;">
                         <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
                             <strong style="color:var(--text-main); font-size:14px; font-weight:900;">Pedido #${p.id.toString().slice(-4)}</strong>
-                            <span class="badge-estado ${claseBadge}">${p.estado}</span>
+                            <span class="badge-estado ${claseBadge}">${textoEstado}</span>
                         </div>
                         <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">🏪 Local/Servicio: <b>${p.empresaNombre}</b></p>
                         <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📍 ${p.descripcion ? '<b>' + p.descripcion + '</b>' : 'Destino: <b>' + p.direccion + '</b>'}</p>
                         <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📦 ${itemsTexto}</p>
                         <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">💳 Total: <b>$${p.total}</b></p>
                         
+                        ${alertaProximidad}
+
                         ${!esCerrado ? `
                             <div style="background:#FFF7ED; padding:12px; border-radius:var(--radius-md); text-align:center; margin-top:12px; border: 1.5px solid #FDBA74;">
                                 <span style="font-size:12px; color:#C2410C; font-weight:700;">🔑 PIN de seguridad para entregar al cadete:</span>
@@ -748,34 +819,44 @@
                             </div>
                         ` : ''}
 
-                        ${seccionCalificacion}</div>
+                        ${seccionCalificacion}
+                    </div>
                 `;
             }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">No tenés pedidos activos.</p>';
 
             if(container) {
                 container.innerHTML = `
-                    <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
+                    <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
+                    </button>
                     <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">📦 Mis Pedidos y Seguimiento</h3>
                     <div id="contenedor-cards-pedidos">${html}</div>
                 `;
             }
         }
 
-        window.calificarPedido = function(idPedido, estrellas) {
+        window.calificarPedido = function(idPedido, valor) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             base.forEach(emp => {
                 if (emp.pedidos) {
                     emp.pedidos.forEach(p => {
                         if (String(p.id).trim() === String(idPedido).trim()) {
                             p.calificadoCliente = true;
-                            p.estrellasCliente = estrellas;
+                            p.estrellasCliente = valor;
                         }
                     });
                 }
             });
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
             window.dispatchEvent(new Event('storage'));
-            alert(`⭐ ¡Gracias! Has calificado este pedido con ${estrellas} estrellas.`);
+
+            fetch(`${BACKEND_URL}/api/pedidos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: idPedido, calificadoCliente: true, estrellasCliente: valor })
+            }).catch(e => console.warn("Modo offline en calificación", e));
+
+            alert(`😊 ¡Gracias por tu calificación!`);
             renderizarListaPedidos();
         };
 
