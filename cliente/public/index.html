@@ -77,6 +77,24 @@
         button:hover { opacity: 0.95; transform: translateY(-1px); }
 
         .link-btn { background: none; color: var(--primary); border: none; text-decoration: underline; cursor: pointer; margin-top: 8px; font-size: 13px; font-weight: 600; box-shadow: none; }
+        
+        .btn-volver-atras {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #E5E7EB;
+            color: var(--text-main);
+            border: none;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            width: auto;
+            box-shadow: none;
+            margin-bottom: 16px;
+        }
+        .btn-volver-atras:hover { background: #D1D5DB; transform: none; }
 
         .search-container { background: #F9FAFB; padding: 12px 18px; border-radius: var(--radius-md); display: flex; align-items: center; gap: 12px; margin-bottom: 20px; border: 1.5px solid var(--card-border); }
         .search-container input { border: none; background: transparent; margin: 0; padding: 0; outline: none; font-size: 15px; color: var(--text-main); }
@@ -143,6 +161,7 @@
 
             <!-- Pantalla Registro -->
             <div id="screen-registro" style="display: none;">
+                <button type="button" class="btn-volver-atras" onclick="irLogin()">← Volver al login</button>
                 <h3 style="color: var(--text-main); margin-top: 0; font-size: 22px; font-weight: 900;">Crear Cuenta</h3>
                 <label>Nombre y Apellido:</label>
                 <input type="text" id="regNombre" placeholder="Tu nombre">
@@ -153,7 +172,6 @@
                 <label>Contraseña:</label>
                 <input type="password" id="regPassword" placeholder="Contraseña segura">
                 <button type="button" onclick="completarRegistroCliente()" style="background: var(--success); margin-top: 10px;">Completar Registro</button>
-                <button type="button" onclick="irLogin()" class="link-btn" style="width:100%; text-align:center; display:block; margin-top:14px;">← Volver al login</button>
             </div>
         </div>
 
@@ -182,12 +200,10 @@
             configurarEventosLogin();
             inicializarDatosDemoSiEsNecesario();
 
-            // Sincronización automática de pestañas
             window.addEventListener('storage', () => {
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
             });
 
-            // Polling en background cada 2 segundos para actualizar estados en tiempo real
             setInterval(() => {
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
             }, 2000);
@@ -351,6 +367,7 @@
             `).join('') || '<p style="text-align:center; color:var(--text-muted); padding:30px;">No hay productos en outlet.</p>';
 
             container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
                 <div class="outlet-banner" style="margin-bottom:22px;">
                     <div>
                         <h3 style="margin:0; font-size:20px; font-weight:900;">🔥 ZONA OUTLET EXCLUSIVA</h3>
@@ -380,8 +397,8 @@
             `).join('') || '<p style="text-align:center; color:var(--text-muted); padding:20px;">Sin productos.</p>';
 
             container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
-                    <button type="button" onclick="mostrarHome()" style="width:auto; padding:8px 14px; font-size:12px; background:#E5E7EB; color:var(--text-main); box-shadow:none;">← Volver</button>
                     <h3 style="margin:0; font-size:18px; font-weight:900;">${emp.nombre}</h3>
                 </div>
                 <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:20px; font-size:13px; color:var(--text-muted); border: 1.5px solid var(--card-border);">
@@ -401,8 +418,8 @@
 
             const container = document.getElementById('main-content');
             container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="verCatalogoComercio('${rut}')">← Volver al Catálogo</button>
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
-                    <button type="button" onclick="verCatalogoComercio('${rut}')" style="width:auto; padding:8px 14px; font-size:12px; background:#E5E7EB; color:var(--text-main); box-shadow:none;">← Volver</button>
                     <h3 style="margin:0; font-size:18px; font-weight:900;">💳 Resumen y Pago</h3>
                 </div>
 
@@ -441,7 +458,7 @@
             document.getElementById('lblTotal').innerText = `$${base + p}`;
         }
 
-        function confirmarPedidoCompra(rut, productoId) {
+        async function confirmarPedidoCompra(rut, productoId) {
             let dir = document.getElementById('dirEntregaFinal').value;
             let propina = Number(document.getElementById('inputPropina').value) || 0;
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
@@ -465,10 +482,22 @@
                 codigoVerificacion: Math.floor(1000 + Math.random() * 9000).toString()
             };
 
+            // Guardado local y sincronización para pruebas offline
             if (!emp.pedidos) emp.pedidos = [];
             emp.pedidos.push(nuevoPedido);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
             window.dispatchEvent(new Event('storage'));
+
+            // Intentar sincronizar con el backend en Render
+            try {
+                await fetch(`${BACKEND_URL}/api/pedidos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevoPedido)
+                });
+            } catch (e) {
+                console.warn("No se pudo conectar con Render, respaldado localmente.", e);
+            }
 
             alert(`✅ ¡Pedido confirmado por $${total}!\n🔑 PIN de seguridad: [ ${nuevoPedido.codigoVerificacion} ]`);
             mostrarPedidosActivos();
@@ -483,6 +512,7 @@
         function mostrarFormularioCadeteria() {
             actualizarMenuActivo(2);
             document.getElementById('main-content').innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
                 <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">🛵 Cadetería Express</h3>
                 <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Punto A a B con múltiples paradas y mapa en Montevideo.</p>
 
@@ -513,7 +543,6 @@
                 <label>Descripción detallada de la carga:</label>
                 <textarea id="cadDescripcion" rows="2" placeholder="Ej: Paquete frágil / Documentación..."></textarea>
 
-                <!-- SECCIÓN DE PROPINA PARA CADETERÍA EXPRESS -->
                 <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border);">
                     <label style="font-size:12px; margin-bottom:6px; color:var(--primary);">🪙 Propina 100% para el cadete:</label>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
@@ -604,7 +633,7 @@
             }
         }
 
-        function solicitarCadeteriaExpressFinal() {
+        async function solicitarCadeteriaExpressFinal() {
             let origen = document.getElementById('cadOrigen').value.trim();
             let inputsDestino = document.querySelectorAll('.input-destino-cadete');
             let destinosValidos = Array.from(inputsDestino).filter(i => i.value.trim().length > 2);
@@ -644,6 +673,16 @@
             
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
             window.dispatchEvent(new Event('storage'));
+
+            try {
+                await fetch(`${BACKEND_URL}/api/pedidos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevoPedido)
+                });
+            } catch (e) {
+                console.warn("No se pudo conectar con Render, respaldado localmente.", e);
+            }
 
             alert(`✅ ¡Buscando cadete más cercano a origen por $${totalFinal}!\n🔑 PIN de seguridad obligatorio: [ ${nuevoPedido.codigoVerificacion} ]`);
             mostrarPedidosActivos();
@@ -709,13 +748,13 @@
                             </div>
                         ` : ''}
 
-                        ${seccionCalificacion}
-                    </div>
+                        ${seccionCalificacion}</div>
                 `;
             }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">No tenés pedidos activos.</p>';
 
             if(container) {
                 container.innerHTML = `
+                    <button type="button" class="btn-volver-atras" onclick="mostrarHome()">← Volver al Inicio</button>
                     <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">📦 Mis Pedidos y Seguimiento</h3>
                     <div id="contenedor-cards-pedidos">${html}</div>
                 `;

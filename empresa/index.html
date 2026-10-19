@@ -98,6 +98,23 @@
             font-size: 13px;
         }
 
+        .btn-volver-atras {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #E5E7EB;
+            color: var(--primary);
+            border: none;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            width: auto;
+            margin-bottom: 14px;
+        }
+        .btn-volver-atras:hover { background: #D1D5DB; }
+
         .gestion-card {
             background: #fff;
             border: 1px solid var(--border);
@@ -215,8 +232,9 @@
                 </div>
             </div>
 
-            <!-- Registro de Empresas con Selector de Giro (Restaurant) y Carga de Logo -->
+            <!-- Registro de Empresas con Selector de Giro y Carga de Logo -->
             <div id="screen-registro-empresa" style="display: none;">
+                <button type="button" class="btn-volver-atras" onclick="irLoginEmpresa()">← Volver al login</button>
                 <h3 style="color: var(--primary); margin-top: 0;">Registro de Local</h3>
                 <label>Nombre del Comercio:</label>
                 <input type="text" id="regEmpNombre" placeholder="Ej: Tienda Pepito">
@@ -225,12 +243,11 @@
                 
                 <label>Giro Comercial (Rubro):</label>
                 <select id="regEmpGiro">
-                    <option value="Restaurant">🍔 Restaurant / Alimentos</option>
-                    <option value="Farmacia y Estética">💊 Farmacia y Estética</option>
-                    <option value="Electrónica y Tecnología">⚡ Electrónica y Tecnología</option>
-                    <option value="Servicios y Ferretería">🔧 Servicios y Ferretería</option>
-                    <option value="Indumentaria y Moda">👕 Indumentaria y Moda</option>
-                    <option value="Otro">📦 Otro Rubro</option>
+                    <option value="Gastronomía">🍔 Gastronomía / Alimentos</option>
+                    <option value="Supermercado">🛒 Supermercado / Almacén</option>
+                    <option value="Farmacia">💊 Farmacia / Salud</option>
+                    <option value="Indumentaria">👕 Indumentaria y Moda</option>
+                    <option value="Tecnología">⚡ Tecnología y Electrónica</option>
                 </select>
 
                 <label>Logo de la Empresa (Cámara o Archivo):</label>
@@ -243,7 +260,6 @@
                 <label>Contraseña:</label>
                 <input type="password" id="regEmpPass" placeholder="Contraseña de acceso">
                 <button type="button" onclick="completarRegistroEmpresa()" style="background: var(--success); margin-top: 6px;">Crear Cuenta Empresa</button>
-                <button type="button" onclick="irLoginEmpresa()" class="link-btn" style="width:100%; text-align:center;">Volver al login</button>
             </div>
         </div>
 
@@ -292,7 +308,7 @@
                 }
             }, 2000);
 
-            window.addEventListener('storage', (e) => {
+            window.addEventListener('storage', () => {
                 let emp = obtenerEmpresaActualizada();
                 if (emp) {
                     actualizarContadorPedidosBadge(emp.rut);
@@ -312,15 +328,43 @@
                 const empresasDemo = [
                     {
                         rut: '219999990012',
-                        nombre: 'Lo Tengo Central Montevideo',
-                        giro: 'Restaurant',
-                        logo: '',
+                        nombre: 'Lo Tengo Chivitería Central',
+                        giro: 'Gastronomía',
+                        logo: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80',
                         telefono: '099000000',
                         direccion: 'Av. 18 de Julio 1300',
                         password: '123',
                         productos: [
-                            { id: 1, nombre: "Chivito al Plato Clásico", precio: 480, imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80", outlet: false, destacado: true },
-                            { id: 2, nombre: "Empanadas de Carne (Docena)", precio: 520, imagen: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=400&q=80", outlet: true, destacado: false }
+                            { id: 101, nombre: "Chivito al Plato Clásico", precio: 480, imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80", outlet: false, destacado: true },
+                            { id: 102, nombre: "Empanadas de Carne (Docena)", precio: 520, imagen: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=400&q=80", outlet: true, destacado: false }
+                        ],
+                        pedidos: []
+                    },
+                    {
+                        rut: '218888880014',
+                        nombre: 'Supermercado El Dorado Express',
+                        giro: 'Supermercado',
+                        logo: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=400&q=80',
+                        telefono: '099111111',
+                        direccion: 'Bv. General Artigas 1800',
+                        password: '123',
+                        productos: [
+                            { id: 201, nombre: "Canasta Básica de Alimentos", precio: 890, imagen: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80", outlet: false, destacado: true },
+                            { id: 202, nombre: "Pack Leche Descremada x6", precio: 290, imagen: "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&w=400&q=80", outlet: true, destacado: false }
+                        ],
+                        pedidos: []
+                    },
+                    {
+                        rut: '217777770016',
+                        nombre: 'Farmacia San Roque 24hs',
+                        giro: 'Farmacia',
+                        logo: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=400&q=80',
+                        telefono: '099222222',
+                        direccion: 'Av. 21 de Setiembre 2400',
+                        password: '123',
+                        productos: [
+                            { id: 301, nombre: "Protector Solar SPF 50+", precio: 750, imagen: "https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?auto=format&fit=crop&w=400&q=80", outlet: false, destacado: true },
+                            { id: 302, nombre: "Kit Primeros Auxilios Completo", precio: 450, imagen: "https://images.unsplash.com/photo-1603398938378-e54eab446dde?auto=format&fit=crop&w=400&q=80", outlet: true, destacado: false }
                         ],
                         pedidos: []
                     }
@@ -486,19 +530,17 @@
             }).length;
             let totalEnRuta = (emp.pedidos || []).filter(p => p.estado === 'Listo para Retirar (En Ruta/Cadete)').length;
 
-            let mostrarLogoEnDashboard = (emp.giro === 'Restaurant' && emp.logo);
-
             container.innerHTML = `
                 <div style="background: linear-gradient(135deg, var(--primary), #004080); color:white; padding:20px; border-radius:var(--radius); margin-bottom:18px; display:flex; align-items:center; gap:15px;">
-                    ${mostrarLogoEnDashboard ? `<img src="${emp.logo}" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid white; background:#fff;" alt="Logo">` : ''}
+                    ${emp.logo ? `<img src="${emp.logo}" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid white; background:#fff;" alt="Logo">` : ''}
                     <div style="flex:1;">
                         <h3 style="margin:0 0 5px 0;">🏪 ${emp.nombre}</h3>
-                        <p style="margin:0 0 4px 0; font-size:12px; opacity:0.9;">🏷️ Giro: <b>${emp.giro || 'Restaurant'}</b></p>
-                        <p style="margin:0; font-size:12px; opacity:0.9;">📍 ${emp.giro === 'Restaurant' ? emp.direccion : 'Dirección Oculta (Privacidad por Rubro)'} | RUT: ${emp.rut}</p>
+                        <p style="margin:0 0 4px 0; font-size:12px; opacity:0.9;">🏷️ Giro: <b>${emp.giro || 'Comercio'}</b></p>
+                        <p style="margin:0; font-size:12px; opacity:0.9;">📍 ${emp.direccion} | RUT: ${emp.rut}</p>
                     </div>
                 </div>
 
-                <!-- BANNER DE PROMOCIÓN DE DESTACADOS (7 productos destacados por 7 días a $500) -->
+                <!-- BANNER DE PROMOCIÓN DE DESTACADOS ($500 / 7 días) -->
                 <div style="background: linear-gradient(135deg, #7C3AED, #9333EA); color: white; padding: 18px; border-radius: var(--radius); margin-bottom: 18px; box-shadow: 0 4px 15px rgba(124,58,237,0.25);">
                     <div style="font-size: 10px; font-weight: 900; background: rgba(255,255,255,0.25); padding: 3px 8px; border-radius: 6px; display: inline-block; margin-bottom: 6px;">PROMOCIÓN EXCLUSIVA</div>
                     <h3 style="margin: 0 0 6px 0; font-size: 17px; font-weight: 900;">⭐ ¡Destacá tus Productos!</h3>
@@ -545,6 +587,7 @@
             `).join('') || '<p style="text-align:center; color:#666;">No tenés productos cargados aún.</p>';
 
             container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
                 <div class="section-title"><span>📦 Mi Catálogo Exclusivo</span></div>
                 <div style="background:#fff; border:1px solid var(--border); padding:15px; border-radius:var(--radius); margin-bottom:15px;">
                     <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">Agregar Nuevo Artículo</h4>
@@ -716,6 +759,7 @@
             }).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos pendientes en preparación.</p>';
 
             container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
                 <div id="bandera-vista-pedidos"></div>
                 <div class="section-title">
                     <span>🛎️ Pedidos en Cocina (Nuevos Arriba)</span>
@@ -758,6 +802,7 @@
             `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos pendientes de retiro.</p>';
 
             container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
                 <div id="bandera-vista-envios"></div>
                 <div class="section-title">
                     <span>🛵 Pedidos Liberados</span>
@@ -810,6 +855,7 @@
             let netoTotal = brutoTotal - comisionesTotal;
 
             container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">← Volver al Dashboard</button>
                 <div class="section-title"><span>💰 Historial y Liquidación</span></div>
                 <div style="background:linear-gradient(135deg, #137333, #0d5123); color:white; padding:15px; border-radius:var(--radius); margin-bottom:15px;">
                     <h4 style="margin:0 0 8px 0; font-size:14px;">Resumen Financiero Acumulado</h4>

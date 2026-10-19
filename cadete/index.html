@@ -101,6 +101,23 @@
             font-size: 13px;
         }
 
+        .btn-volver-atras {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #E5E7EB;
+            color: var(--primary);
+            border: none;
+            padding: 8px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 10px;
+            cursor: pointer;
+            width: auto;
+            margin-bottom: 14px;
+        }
+        .btn-volver-atras:hover { background: #D1D5DB; }
+
         .section-title {
             font-size: 16px;
             font-weight: 800;
@@ -144,7 +161,6 @@
         .nav-item span { font-size: 16px; margin-bottom: 2px; }
         .nav-item.active { color: var(--secondary); font-weight: bold; }
 
-        /* Banner emergente animado */
         #banner-notificacion-flotante {
             position: fixed;
             top: -100px;
@@ -224,6 +240,7 @@
 
             <!-- 2. REGISTRO DE CADETES -->
             <div id="screen-registro-cadete" style="display: none;">
+                <button type="button" class="btn-volver-atras" onclick="irLoginCadete()">← Volver al login</button>
                 <h3 style="color: var(--primary); margin-top: 0;">Registro de Cadete</h3>
                 <label>Nombre Completo:</label>
                 <input type="text" id="regCadNombre" placeholder="Ej: Carlos Gómez">
@@ -241,17 +258,16 @@
                 <label>Contraseña:</label>
                 <input type="password" id="regCadPass" placeholder="Contraseña de acceso">
                 <button type="button" onclick="completarRegistroCadete()" style="background: var(--success); margin-top: 6px;">Crear Cuenta Cadete</button>
-                <button type="button" onclick="irLoginCadete()" class="link-btn" style="width:100%; text-align:center;">Volver al login</button>
             </div>
 
             <!-- 3. RECUPERAR CONTRASEÑA -->
             <div id="screen-recuperar-cadete" style="display: none;">
+                <button type="button" class="btn-volver-atras" onclick="irLoginCadete()">← Volver al login</button>
                 <h3 style="color: var(--primary); margin-top: 0;">Recuperar Contraseña</h3>
                 <p style="font-size: 13px; color: #666;">Ingresá tu Cédula de Identidad (CI) para restablecer tu contraseña.</p>
                 <label>Cédula de Identidad:</label>
                 <input type="text" id="recuperarDato" placeholder="CI sin puntos">
                 <button type="button" onclick="enviarRecuperacionPass()" style="background: var(--secondary);">Enviar Instrucciones</button>
-                <button type="button" onclick="irLoginCadete()" class="link-btn" style="width:100%; text-align:center;">Volver al login</button>
             </div>
 
         </div>
@@ -267,7 +283,6 @@
 
     <!-- Script General de Lógica e Integración Transversal -->
     <script>
-        // URL del backend configurada en Render
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
         let ultimoConteoPedidosCadete = 0;
@@ -595,7 +610,7 @@
                         <button type="button" onclick="marcarPaqueteRetirado('${p.id}')" style="background: var(--warning); color: #000; font-size: 12px; margin:0;">📦 Recibí el paquete / Retirado del local</button>
                     </div>
 
-                    <!-- BOTÓN NUEVO: REPORTAR DESPERFECTO MECÁNICO / EMERGENCIA -->
+                    <!-- BOTÓN DE PROBLEMA / DESPERFECTO MECÁNICO -->
                     <div style="background: #FEE2E2; padding: 10px; border-radius: 8px; margin: 8px 0; border: 1px solid #EF4444;">
                         <button type="button" onclick="reportarDesperfectoMecanico('${p.id}')" style="background: var(--danger); color: white; font-size: 12px; margin:0;">⚠️ Reportar Desperfecto Mecánico / Auxilio</button>
                     </div>
@@ -629,7 +644,6 @@
             `;
         }
 
-        // FUNCIÓN NUEVA: REPORTAR DESPERFECTO MECÁNICO HACIA LA ADMINISTRACIÓN
         window.reportarDesperfectoMecanico = function(idPedido) {
             let zonaIncidente = prompt("Ingresá la esquina o zona aproximada donde tuviste el problema (ej: 18 de Julio y Ejido):", "Montevideo");
             if (zonaIncidente !== null) {
