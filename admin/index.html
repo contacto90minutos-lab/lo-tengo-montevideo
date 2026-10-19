@@ -3,38 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LO TENGO - Panel de Administración Central</title>
+    <title>LO TENGO - Panel de Administración</title>
     <style>
         :root {
-            --primary: #0F172A;
-            --secondary: #E85B04;
-            --success: #10B981;
-            --warning: #F59E0B;
-            --danger: #EF4444;
-            --bg-light: #F8FAFC;
-            --border: #E2E8F0;
-            --radius: 14px;
-            --shadow-subtle: 0 4px 20px rgba(0, 0, 0, 0.05);
+            --primary: #0A192F;
+            --secondary: #1E3A8A;
+            --accent: #2563EB;
+            --success: #059669;
+            --warning: #D97706;
+            --danger: #DC2626;
+            --bg-body: #F1F5F9;
+            --card-bg: #FFFFFF;
+            --border: #CBD5E1;
+            --text-main: #0F172A;
+            --text-muted: #64748B;
+            --radius: 8px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
         }
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #F1F5F9;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             margin: 0;
             padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            color: #1E293B;
         }
 
         #app-container {
-            background: #ffffff;
+            background: var(--card-bg);
             width: 100%;
             max-width: 480px;
             min-height: 100vh;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -48,109 +52,159 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom-left-radius: 20px;
-            border-bottom-right-radius: 20px;
+            border-bottom: 2px solid var(--accent);
         }
 
         .header-app h1 {
             margin: 0;
-            font-size: 18px;
-            letter-spacing: 0.5px;
-            font-weight: 900;
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
         }
 
         .content-body {
             padding: 16px;
             flex: 1;
             overflow-y: auto;
-            padding-bottom: 90px;
+            padding-bottom: 85px;
+        }
+
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            display: block;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         input, select, textarea {
             width: 100%;
-            padding: 12px;
-            margin: 6px 0 12px 0;
-            border: 1.5px solid var(--border);
-            border-radius: 10px;
+            padding: 10px 12px;
+            margin: 4px 0 14px 0;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
             box-sizing: border-box;
             font-size: 14px;
-            background: #F8FAFC;
+            background: #FFFFFF;
+            color: var(--text-main);
         }
-        input:focus { outline: none; border-color: var(--secondary); background: #fff; }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
 
         button {
             width: 100%;
-            padding: 12px;
-            background-color: var(--primary);
+            padding: 10px;
+            background-color: var(--accent);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-weight: 800;
+            border-radius: var(--radius);
+            font-weight: 600;
             cursor: pointer;
-            font-size: 14px;
-            transition: all 0.2s;
+            font-size: 13px;
+            transition: background-color 0.2s;
         }
-        button:hover { opacity: 0.95; transform: translateY(-1px); }
+
+        button:hover { background-color: #1D4ED8; }
 
         .btn-volver-atras {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            background: #FFFFFF;
+            gap: 6px;
+            background: #E2E8F0;
             color: var(--primary);
-            border: 1.5px solid var(--border);
-            padding: 10px 16px;
-            font-size: 13px;
+            border: none;
+            padding: 8px 12px;
+            font-size: 12px;
             font-weight: 700;
             border-radius: var(--radius);
             cursor: pointer;
             width: auto;
-            box-shadow: var(--shadow-subtle);
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
-        .btn-volver-atras:hover { background: #F1F5F9; border-color: var(--secondary); }
+        .btn-volver-atras:hover { background: #CBD5E1; }
 
-        .card-item {
-            background: #fff;
-            border: 1.5px solid var(--border);
+        .card-metric {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 14px;
             margin-bottom: 12px;
-            box-shadow: var(--shadow-subtle);
+            box-shadow: var(--shadow);
         }
 
-        .section-title {
-            font-size: 16px;
-            font-weight: 900;
+        .metric-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin: 0 0 4px 0;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        .pedido-admin-card {
+            background: #FFFFFF;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px;
+            margin-bottom: 12px;
+            box-shadow: var(--shadow);
+            border-left: 5px solid var(--border);
+        }
+
+        .pedido-verde { border-left-color: var(--success); }
+        .pedido-amarillo { border-left-color: var(--warning); }
+        .pedido-rojo { border-left-color: var(--danger); background: #FEF2F2; }
+
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #F8FAFC;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-size: 10px;
+            letter-spacing: 0.5px;
+        }
+
+        .section-header {
+            font-size: 14px;
+            font-weight: 700;
             color: var(--primary);
-            margin: 0 0 14px 0;
+            margin: 18px 0 10px 0;
+            padding-bottom: 4px;
+            border-bottom: 2px solid var(--border);
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-
-        .badge {
-            padding: 4px 8px;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: 800;
-            display: inline-block;
-        }
-        .badge-admin { background: #EEF2FF; color: #4338CA; }
-        .badge-giro { background: #FEF3C7; color: #B45309; }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 18px;
-        }
-        .stat-card {
-            background: #F8FAFC;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            padding: 14px;
-            text-align: center;
         }
 
         .bottom-nav {
@@ -158,96 +212,118 @@
             bottom: 0;
             left: 0;
             width: 100%;
-            background: #ffffff;
+            background: #FFFFFF;
             border-top: 1px solid var(--border);
             display: flex;
             justify-content: space-around;
             padding: 8px 0;
             box-sizing: border-box;
-            border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.03);
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.04);
             z-index: 10;
         }
 
         .nav-item {
             background: none;
             border: none;
-            color: #64748B;
-            font-size: 10px;
+            color: var(--text-muted);
+            font-size: 8px;
+            font-weight: 600;
             cursor: pointer;
             width: auto;
-            padding: 0;
+            padding: 4px 2px;
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
+            text-transform: uppercase;
+            letter-spacing: 0.2px;
+        }
+
+        .nav-item.active {
+            color: var(--accent);
             font-weight: 700;
         }
-        .nav-item span { font-size: 18px; margin-bottom: 2px; }
-        .nav-item.active { color: var(--secondary); }
     </style>
 </head>
 <body>
 
     <div id="app-container">
-        <!-- Header -->
+        <!-- Header Corporativo -->
         <div class="header-app">
-            <h1><span style="color:var(--secondary);">LO</span> TENGO <small style="font-size:11px; opacity:0.8;">[Admin]</small></h1>
-            <span id="header-admin-info" style="font-size: 11px; opacity: 0.9; font-weight: 700;">Panel Central</span>
+            <h1>LO TENGO <span style="font-weight: 300; font-size: 14px; opacity: 0.85;">| Admin</span></h1>
+            <span id="header-admin-user" style="font-size: 11px; font-weight: 600; opacity: 0.9;">Control Central</span>
         </div>
         
-        <!-- Contenedor Principal -->
+        <!-- Cuerpo Principal -->
         <div class="content-body" id="main-content-admin">
-            <!-- Pantalla Login Admin -->
+            <!-- Pantalla de Autenticación Admin -->
             <div id="screen-login-admin">
-                <h3 style="color: var(--primary); margin-top: 0; font-weight: 900; font-size: 20px;">Acceso Administración</h3>
-                <p style="font-size: 13px; color: #64748B; margin-bottom: 20px;">Control total de bases de datos de comercios, cadetes y clientes.</p>
+                <h3 style="color: var(--primary); margin-top: 0; font-size: 16px; font-weight: 700;">Acceso Restringido</h3>
+                <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Panel exclusivo para la gestión corporativa de la red.</p>
+                
+                <label>Credencial de Acceso / PIN:</label>
+                <input type="password" id="adminPassInput" placeholder="Ingrese clave (ej: 1234)">
 
-                <label>Usuario Administrador:</label>
-                <input type="text" id="loginAdminUser" placeholder="Ej: admin">
-
-                <label>Contraseña:</label>
-                <input type="password" id="loginAdminPass" placeholder="Contraseña">
-
-                <button type="button" onclick="ejecutarLoginAdmin()" style="background-color: var(--secondary); margin-top: 10px;">Ingresar al Sistema</button>
+                <button type="button" onclick="verificarLoginAdmin()">Autenticar Sesión</button>
             </div>
         </div>
 
-        <!-- Barra de Navegación Inferior Admin -->
+        <!-- Barra de Navegación Inferior -->
         <div class="bottom-nav" id="bottom-nav-admin" style="display: none;">
-            <button class="nav-item active" onclick="mostrarDashboardAdmin()"><span>📊</span>Panel</button>
-            <button class="nav-item" onclick="mostrarListaEmpresasAdmin()"><span>🏪</span>Empresas</button>
-            <button class="nav-item" onclick="mostrarListaCadetesAdmin()"><span>🛵</span>Cadetes</button>
-            <button class="nav-item" onclick="mostrarListaClientesAdmin()"><span>👥</span>Clientes</button>
-            <button class="nav-item" onclick="cerrarSesionAdmin()"><span>🚪</span>Salir</button>
+            <button class="nav-item active" onclick="mostrarDashboardAdmin()">Dashboard</button>
+            <button class="nav-item" onclick="mostrarGestionPedidosAdmin()">Órdenes</button>
+            <button class="nav-item" onclick="mostrarListaEmpresasAdmin()">Empresas</button>
+            <button class="nav-item" onclick="mostrarListaCadetesAdmin()">Cadetes</button>
+            <button class="nav-item" onclick="mostrarListaClientesAdmin()">Clientes</button>
+            <button class="nav-item" onclick="mostrarLiquidacionEmpresas()">Comisiones</button>
+            <button class="nav-item" onclick="cerrarSesionAdmin()">Salir</button>
         </div>
     </div>
 
+    <!-- Script de Control, Planillas y Bases de Datos -->
     <script>
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
+        let ultimoConteoAlertas = 0;
+        let alertasDesplegadas = {};
+
         document.addEventListener("DOMContentLoaded", () => {
             verificarSesionAdmin();
+
+            setInterval(() => {
+                let sesion = localStorage.getItem('lt_sesion_admin');
+                if (sesion === 'true') {
+                    verificarAlertasCadetesEnVivo();
+                }
+            }, 3000);
+
+            window.addEventListener('storage', () => {
+                let sesion = localStorage.getItem('lt_sesion_admin');
+                if (sesion === 'true') {
+                    verificarAlertasCadetesEnVivo();
+                }
+            });
         });
 
         function verificarSesionAdmin() {
-            let sesion = localStorage.getItem('lt_sesion_admin');
-            if (sesion) {
+            const sesion = localStorage.getItem('lt_sesion_admin');
+            if (sesion === 'true') {
                 document.getElementById('bottom-nav-admin').style.display = 'flex';
                 mostrarDashboardAdmin();
+            } else {
+                const loginScreen = document.getElementById('screen-login-admin');
+                if (loginScreen) loginScreen.style.display = 'block';
             }
         }
 
-        function ejecutarLoginAdmin() {
-            let user = document.getElementById('loginAdminUser').value.trim();
-            let pass = document.getElementById('loginAdminPass').value.trim();
-
-            if (user === "admin" && pass === "1234") {
-                localStorage.setItem('lt_sesion_admin', JSON.stringify({ user: "Administrador General" }));
-                location.reload();
+        function verificarLoginAdmin() {
+            const pass = document.getElementById('adminPassInput').value.trim();
+            if (pass === "1234" || pass === "admin2026") {
+                localStorage.setItem('lt_sesion_admin', 'true');
+                document.getElementById('bottom-nav-admin').style.display = 'flex';
+                mostrarDashboardAdmin();
             } else {
-                alert("❌ Credenciales incorrectas. Probá admin / 1234");
+                alert("Credenciales de administración incorrectas.");
             }
         }
 
@@ -256,93 +332,169 @@
             location.reload();
         }
 
-        function actualizarMenuActivoAdmin(index) {
-            document.querySelectorAll('.bottom-nav .nav-item').forEach((btn, idx) => {
-                btn.classList.toggle('active', idx === index);
-            });
+        function reproducirAlertaSonora() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            } catch (e) {
+                console.log("Audio bloqueado o no soportado", e);
+            }
         }
 
-        // ==========================================
-        // DASHBOARD PRINCIPAL ADMIN
-        // ==========================================
-        function mostrarDashboardAdmin() {
-            actualizarMenuActivoAdmin(0);
-            let empresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+        function verificarAlertasCadetesEnVivo() {
+            let alertas = JSON.parse(localStorage.getItem('lt_alertas_cadetes')) || [];
+            let activas = alertas.filter(a => !a.resuelta);
+            if (activas.length > ultimoConteoAlertas) {
+                reproducirAlertaSonora();
+                ultimoConteoAlertas = activas.length;
+            } else if (activas.length < ultimoConteoAlertas) {
+                ultimoConteoAlertas = activas.length;
+            }
+        }
+
+        function obtenerDatosGlobalesSistema() {
+            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let cadetes = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
             let clientes = JSON.parse(localStorage.getItem('lt_base_usuarios')) || [];
+            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            let alertasCadetes = JSON.parse(localStorage.getItem('lt_alertas_cadetes')) || [];
+            
+            let totalPedidosGlobales = 0;
+            let volumenTransaccional = 0;
+            let totalComisionesPlataforma = 0;
+            let listaPedidosGlobales = [];
 
-            let totalProductos = empresas.reduce((acc, emp) => acc + (emp.productos ? emp.productos.length : 0), 0);
+            baseEmpresas.forEach(emp => {
+                if (emp.pedidos) {
+                    emp.pedidos.forEach(p => {
+                        totalPedidosGlobales++;
+                        let st = (p.estado || '').toLowerCase();
+                        let esCancelada = st.includes('cancelado');
 
+                        if (!esCancelada) {
+                            let monto = parseFloat(p.total) || 0;
+                            volumenTransaccional += monto;
+                            totalComisionesPlataforma += (monto * 0.10);
+                        }
+
+                        listaPedidosGlobales.push({
+                            ...p,
+                            comercioNombre: emp.nombre,
+                            comercioRut: emp.rut,
+                            esCancelada
+                        });
+                    });
+                }
+            });
+
+            return {
+                baseEmpresas,
+                cadetes,
+                clientes,
+                pedidosCadete,
+                alertasCadetes,
+                listaPedidosGlobales,
+                totalPedidosGlobales,
+                volumenTransaccional,
+                totalComisionesPlataforma
+            };
+        }
+
+        function mostrarDashboardAdmin() {
+            actualizarMenuActivoAdmin(0);
+            let datos = obtenerDatosGlobalesSistema();
             const container = document.getElementById('main-content-admin');
-            container.innerHTML = `
-                <h3 style="margin-top:0; font-weight:900; font-size:18px;">📊 Resumen de Base de Datos</h3>
-                <p style="font-size:13px; color:#64748B; margin-bottom:16px;">Control centralizado de activos de la plataforma en Montevideo.</p>
 
-                <div class="stats-grid">
-                    <div class="stat-card" onclick="mostrarListaEmpresasAdmin()" style="cursor:pointer;">
-                        <span style="font-size:24px;">🏪</span>
-                        <h2 style="margin:6px 0 2px 0; color:var(--primary);">${empresas.length}</h2>
-                        <p style="margin:0; font-size:12px; color:#64748B; font-weight:700;">Empresas / Locales</p>
+            let alertasActivas = datos.alertasCadetes.filter(a => !a.resuelta);
+            let htmlAlertasDashboard = '';
+
+            if (alertasActivas.length > 0) {
+                htmlAlertasDashboard = `
+                    <div style="background: #FEE2E2; border: 1px solid #EF4444; border-radius: var(--radius); padding: 12px; margin-bottom: 15px;">
+                        <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #991B1B;">⚠️ ¡ATENCIÓN: ALERTA DE CADETE ACTIVA!</p>
+                        <p style="margin: 0; font-size: 12px; color: #7F1D1D;">Hay ${alertasActivas.length} reporte(s) de desperfecto mecánico en la calle. Diríjase a la sección de Órdenes.</p>
                     </div>
-                    <div class="stat-card" onclick="mostrarListaCadetesAdmin()" style="cursor:pointer;">
-                        <span style="font-size:24px;">🛵</span>
-                        <h2 style="margin:6px 0 2px 0; color:var(--secondary);">${cadetes.length}</h2>
-                        <p style="margin:0; font-size:12px; color:#64748B; font-weight:700;">Cadetes Registrados</p>
+                `;
+            }
+
+            container.innerHTML = `
+                ${htmlAlertasDashboard}
+                <div class="section-header"><span>Indicadores Operativos</span></div>
+                
+                <div class="card-metric">
+                    <p class="metric-title">Volumen Transaccional Efectivo</p>
+                    <p class="metric-value" style="color: var(--success);">$${datos.volumenTransaccional.toFixed(2)}</p>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="card-metric" onclick="mostrarListaEmpresasAdmin()" style="cursor:pointer;">
+                        <p class="metric-title">Comercios</p>
+                        <p class="metric-value">${datos.baseEmpresas.length}</p>
                     </div>
-                    <div class="stat-card" onclick="mostrarListaClientesAdmin()" style="cursor:pointer;">
-                        <span style="font-size:24px;">👥</span>
-                        <h2 style="margin:6px 0 2px 0; color:var(--success);">${clientes.length}</h2>
-                        <p style="margin:0; font-size:12px; color:#64748B; font-weight:700;">Clientes Activos</p>
-                    </div>
-                    <div class="stat-card">
-                        <span style="font-size:24px;">📦</span>
-                        <h2 style="margin:6px 0 2px 0; color:#4338CA;">${totalProductos}</h2>
-                        <p style="margin:0; font-size:12px; color:#64748B; font-weight:700;">Productos en Catálogo</p>
+                    <div class="card-metric" onclick="mostrarListaCadetesAdmin()" style="cursor:pointer;">
+                        <p class="metric-title">Cadetes</p>
+                        <p class="metric-value" style="color: var(--accent);">${datos.cadetes.length}</p>
                     </div>
                 </div>
 
-                <div style="background:#FEE2E2; border:1.5px solid #FCA5A5; padding:16px; border-radius:var(--radius); margin-top:20px;">
-                    <h4 style="margin:0 0 6px 0; color:#991B1B; font-size:14px;">🗄️ Valor Estratégico de Datos</h4>
-                    <p style="margin:0; font-size:12px; color:#7F1D1D; line-height:1.4;">Toda la información recopilada de comercios, cadetes y hábitos de clientes queda almacenada de forma estructurada para auditorías, análisis comercial o monetización de bases de datos.</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="card-metric" onclick="mostrarListaClientesAdmin()" style="cursor:pointer;">
+                        <p class="metric-title">Clientes</p>
+                        <p class="metric-value">${datos.clientes.length}</p>
+                    </div>
+                    <div class="card-metric">
+                        <p class="metric-title">Comisión Neta (10%)</p>
+                        <p class="metric-value" style="color: var(--success);">$${datos.totalComisionesPlataforma.toFixed(2)}</p>
+                    </div>
                 </div>
             `;
         }
 
         // ==========================================
-        // GESTIÓN DE EMPRESAS (CON BASE DE DATOS PROFUNDA)
+        // GESTIÓN DE EMPRESAS Y PLANILLA PROFUNDA
         // ==========================================
         function mostrarListaEmpresasAdmin() {
-            actualizarMenuActivoAdmin(1);
-            let empresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-
-            let html = empresas.map((emp, index) => `
-                <div class="card-item" onclick="verDetalleEmpresaAdmin('${emp.rut}')" style="cursor:pointer;">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
-                        <h4 style="margin:0; font-size:15px; font-weight:900; color:var(--primary);">${emp.nombre}</h4>
-                        <span class="badge badge-giro">${emp.giro || 'Comercio'}</span>
-                    </div>
-                    <p style="margin:2px 0; font-size:12px; color:#64748B;">RUT: <b>${emp.rut}</b> | Tel: ${emp.telefono || 'Sin tel'}</p>
-                    <p style="margin:2px 0; font-size:12px; color:#64748B;">📍 ${emp.direccion || 'Montevideo'}</p>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; border-top:1px solid var(--border); padding-top:6px; font-size:12px;">
-                        <span>📦 Productos: <b>${emp.productos ? emp.productos.length : 0}</b></span>
-                        <span style="color:var(--secondary); font-weight:800;">Ver Planilla y Movimientos ›</span>
-                    </div>
-                </div>
-            `).join('') || '<p style="text-align:center; color:#64748B;">No hay empresas registradas.</p>';
-
+            actualizarMenuActivoAdmin(2);
+            let datos = obtenerDatosGlobalesSistema();
             const container = document.getElementById('main-content-admin');
+
+            let htmlEmpresas = datos.baseEmpresas.map(emp => {
+                let totalProd = emp.productos ? emp.productos.length : 0;
+                let totalPed = emp.pedidos ? emp.pedidos.length : 0;
+                return `
+                    <div class="card-metric" onclick="verDetalleEmpresaAdmin('${emp.rut}')" style="cursor:pointer; border-left: 5px solid var(--accent);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--primary);">${emp.nombre}</h4>
+                            <span style="font-size:10px; background:#EFF6FF; color:var(--accent); padding:2px 6px; border-radius:4px; font-weight:700;">${emp.giro || 'Comercio'}</span>
+                        </div>
+                        <p style="margin:4px 0 2px 0; font-size:12px; color:var(--text-muted);"><b>RUT:</b> ${emp.rut} | <b>Tel:</b> ${emp.telefono || 'Sin tel'}</p>
+                        <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📍 ${emp.direccion || 'Montevideo'}</p>
+                        <div style="display:flex; justify-content:space-between; margin-top:8px; border-top:1px solid var(--border); padding-top:6px; font-size:11px; font-weight:700;">
+                            <span>📦 Productos: ${totalProd}</span>
+                            <span>📊 Pedidos: ${totalPed}</span>
+                            <span style="color:var(--accent);">Ver Planilla ›</span>
+                        </div>
+                    </div>
+                `;
+            }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay empresas registradas.</p>';
+
             container.innerHTML = `
-                <div class="section-title">
-                    <span>🏪 Base de Datos de Empresas</span>
-                    <span style="font-size:12px; color:#64748B; font-weight:700;">Total: ${empresas.length}</span>
-                </div>
-                ${html}
+                <div class="section-header"><span>Base de Datos de Comercios (${datos.baseEmpresas.length})</span></div>
+                ${htmlEmpresas}
             `;
         }
 
-        function verDetalleEmpresaAdmin(rut) {
-            let empresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = empresas.find(e => String(e.rut).trim() === String(rut).trim());
+        window.verDetalleEmpresaAdmin = function(rut) {
+            let datos = obtenerDatosGlobalesSistema();
+            let emp = datos.baseEmpresas.find(e => String(e.rut).trim() === String(rut).trim());
             if (!emp) return;
 
             let productosHtml = (emp.productos || []).map(p => `
@@ -350,71 +502,65 @@
                     <span><b>${p.nombre}</b> ${p.outlet ? '🔥(Outlet)' : ''}</span>
                     <b style="color:var(--success);">$${p.precio}</b>
                 </div>
-            `).join('') || '<p style="font-size:12px; color:#64748B;">Sin productos cargados.</p>';
+            `).join('') || '<p style="font-size:12px; color:var(--text-muted);">Sin productos cargados.</p>';
 
             let pedidosHtml = (emp.pedidos || []).map(p => `
                 <div style="font-size:12px; border-bottom:1px solid var(--border); padding:6px 0;">
                     <div style="display:flex; justify-content:space-between;">
                         <b>Pedido #${p.id}</b>
-                        <span style="color:var(--secondary); font-weight:bold;">${p.estado || 'Recibido'}</span>
+                        <span style="color:var(--accent); font-weight:bold;">${p.estado || 'Recibido'}</span>
                     </div>
                     <span>Cliente: ${p.cliente} | Total: <b>$${p.total}</b></span>
                 </div>
-            `).join('') || '<p style="font-size:12px; color:#64748B;">Sin pedidos registrados.</p>';
+            `).join('') || '<p style="font-size:12px; color:var(--text-muted);">Sin movimientos registrados.</p>';
 
             const container = document.getElementById('main-content-admin');
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarListaEmpresasAdmin()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Listado
-                </button>
+                <button type="button" class="btn-volver-atras" onclick="mostrarListaEmpresasAdmin()">← Volver al Listado</button>
                 
-                <div style="background:#F8FAFC; border:1.5px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:16px;">
-                    <h3 style="margin:0 0 6px 0; font-size:18px; font-weight:900; color:var(--primary);">${emp.nombre}</h3>
-                    <p style="margin:2px 0; font-size:13px; color:#64748B;">🏷️ Giro: <b>${emp.giro}</b> | RUT: <b>${emp.rut}</b></p>
-                    <p style="margin:2px 0; font-size:13px; color:#64748B;">📞 Teléfono: ${emp.telefono} | 📍 ${emp.direccion}</p>
+                <div class="card-metric" style="background:#F8FAFC;">
+                    <h3 style="margin:0 0 4px 0; font-size:17px; font-weight:800; color:var(--primary);">${emp.nombre}</h3>
+                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);"><b>RUT:</b> ${emp.rut} | <b>Giro:</b> ${emp.giro}</p>
+                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📞 Tel: ${emp.telefono} | 📍 ${emp.direccion}</p>
                 </div>
 
-                <h4 style="font-size:15px; font-weight:900; color:var(--primary); margin:14px 0 8px 0;">📦 Catálogo de Productos (${emp.productos ? emp.productos.length : 0})</h4>
-                <div style="background:#fff; border:1.5px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:16px; max-height:180px; overflow-y:auto;">
+                <div class="section-header"><span>📦 Catálogo de Productos (${emp.productos ? emp.productos.length : 0})</span></div>
+                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:10px; max-height:160px; overflow-y:auto; margin-bottom:14px;">
                     ${productosHtml}
                 </div>
 
-                <h4 style="font-size:15px; font-weight:900; color:var(--primary); margin:14px 0 8px 0;">📊 Movimientos y Pedidos (${emp.pedidos ? emp.pedidos.length : 0})</h4>
-                <div style="background:#fff; border:1.5px solid var(--border); border-radius:var(--radius); padding:12px; max-height:200px; overflow-y:auto;">
+                <div class="section-header"><span>📊 Movimientos y Órdenes (${emp.pedidos ? emp.pedidos.length : 0})</span></div>
+                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:10px; max-height:180px; overflow-y:auto;">
                     ${pedidosHtml}
                 </div>
             `;
-        }
+        };
 
         // ==========================================
-        // GESTIÓN DE CADETES (CON ID ÚNICO Y PLANILLA)
+        // GESTIÓN DE CADETES (CON NÚMERO IDENTIFICADOR)
         // ==========================================
         function mostrarListaCadetesAdmin() {
-            actualizarMenuActivoAdmin(2);
-            let cadetes = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
+            actualizarMenuActivoAdmin(3);
+            let datos = obtenerDatosGlobalesSistema();
+            const container = document.getElementById('main-content-admin');
 
-            let html = cadetes.map((c, index) => {
-                let idCadete = c.idCadete || `CAD-00${index + 1}`;
+            let htmlCadetes = datos.cadetes.map((c, index) => {
+                let idCadeteNum = c.idCadete || `CAD-00${index + 1}`;
                 return `
-                    <div class="card-item">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
-                            <h4 style="margin:0; font-size:15px; font-weight:900; color:var(--primary);">${c.nombre}</h4>
-                            <span class="badge" style="background:#E0F2FE; color:#0369A1;">${idCadete}</span>
+                    <div class="card-metric" style="border-left: 5px solid var(--secondary);">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--primary);">${c.nombre}</h4>
+                            <span style="font-size:10px; background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700;">${idCadeteNum}</span>
                         </div>
-                        <p style="margin:2px 0; font-size:12px; color:#64748B;">🪪 CI: <b>${c.ci || 'No especificada'}</b> | Tel: ${c.telefono}</p>
-                        <p style="margin:2px 0; font-size:12px; color:#64748B;">✉️ Email: ${c.email || 'No registrado'}</p>
-                        <p style="margin:2px 0; font-size:12px; color:#64748B;">🛵 Vehículo: <b>${c.vehiculo || 'Moto'}</b></p>
+                        <p style="margin:4px 0 2px 0; font-size:12px; color:var(--text-muted);"><b>CI:</b> ${c.ci || 'Sin CI'} | <b>Tel:</b> ${c.telefono || 'Sin tel'}</p>
+                        <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">🛵 Vehículo: <b>${c.vehiculo || 'Moto'}</b> | Entregas: <b>${c.entregas ? c.entregas.length : 0}</b></p>
                     </div>
                 `;
-            }).join('') || '<p style="text-align:center; color:#64748B;">No hay cadetes registrados en la base de datos.</p>';
+            }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay cadetes registrados.</p>';
 
-            const container = document.getElementById('main-content-admin');
             container.innerHTML = `
-                <div class="section-title">
-                    <span>🛵 Planilla de Cadetes</span>
-                    <span style="font-size:12px; color:#64748B; font-weight:700;">Total: ${cadetes.length}</span>
-                </div>
-                ${html}
+                <div class="section-header"><span>Planilla de Cadetes (${datos.cadetes.length})</span></div>
+                ${htmlCadetes}
             `;
         }
 
@@ -422,25 +568,273 @@
         // GESTIÓN DE CLIENTES
         // ==========================================
         function mostrarListaClientesAdmin() {
-            actualizarMenuActivoAdmin(3);
-            let clientes = JSON.parse(localStorage.getItem('lt_base_usuarios')) || [];
-
-            let html = clientes.map(cli => `
-                <div class="card-item">
-                    <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:900; color:var(--primary);">${cli.nombre}</h4>
-                    <p style="margin:2px 0; font-size:12px; color:#64748B;">📞 Teléfono / WhatsApp: <b>${cli.telefono}</b></p>
-                    <p style="margin:2px 0; font-size:12px; color:#64748B;">📍 Dirección: ${cli.direccion || 'Montevideo'}</p>
-                </div>
-            `).join('') || '<p style="text-align:center; color:#64748B;">No hay clientes registrados.</p>';
-
+            actualizarMenuActivoAdmin(4);
+            let datos = obtenerDatosGlobalesSistema();
             const container = document.getElementById('main-content-admin');
-            container.innerHTML = `
-                <div class="section-title">
-                    <span>👥 Base de Datos de Clientes</span>
-                    <span style="font-size:12px; color:#64748B; font-weight:700;">Total: ${clientes.length}</span>
+
+            let htmlClientes = datos.clientes.map(cli => `
+                <div class="card-metric" style="border-left: 5px solid var(--success);">
+                    <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:800; color:var(--primary);">${cli.nombre}</h4>
+                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📞 WhatsApp: <b>${cli.telefono}</b></p>
+                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📍 Dirección: ${cli.direccion || 'Montevideo'}</p>
                 </div>
-                ${html}
+            `).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay clientes registrados.</p>';
+
+            container.innerHTML = `
+                <div class="section-header"><span>Base de Datos de Clientes (${datos.clientes.length})</span></div>
+                ${htmlClientes}
             `;
+        }
+
+        function mostrarGestionPedidosAdmin() {
+            actualizarMenuActivoAdmin(1);
+            let datos = obtenerDatosGlobalesSistema();
+            const container = document.getElementById('main-content-admin');
+
+            let alertasActivas = datos.alertasCadetes.filter(a => !a.resuelta);
+            
+            let htmlAlertasAcordeon = alertasActivas.map(alerta => {
+                let estaAbierto = alertasDesplegadas[alerta.id] || false;
+                return `
+                    <div style="background: #FEF2F2; border: 1px solid #EF4444; border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <button type="button" onclick="toggleAlertaDesplegable(${alerta.id})" style="background: #FEE2E2; color: #991B1B; border: none; padding: 10px 14px; width: 100%; text-align: left; font-weight: 700; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                            <span>🚨 ALERTA: Pedido #${alerta.idPedido || 'N/A'} - Cadete: ${alerta.nombreCadete}</span>
+                            <span>${estaAbierto ? '▲ Ocultar' : '▼ Ver Detalle'}</span>
+                        </button>
+
+                        <div style="padding: 12px; display: ${estaAbierto ? 'block' : 'none'}; background: #FFFFFF; border-top: 1px solid #FECACA;">
+                            <p style="margin:2px 0; font-size:12px; color:#7F1D1D;">👤 <b>Cadete afectado:</b> ${alerta.nombreCadete} (<a href="tel:${alerta.telefonoCadete}" style="color:#2563EB; font-weight:bold;">📞 Llamar: ${alerta.telefonoCadete}</a>)</p>
+                            <p style="margin:2px 0; font-size:12px; color:#7F1D1D;">📍 <b>Ubicación del incidente:</b> ${alerta.ubicacion || 'Zona de reparto'}</p>
+                            <p style="margin:2px 0; font-size:12px; color:#7F1D1D;">🕒 <b>Reportado a las:</b> ${new Date(alerta.timestamp).toLocaleTimeString()}</p>
+                            
+                            <div style="background: #F8FAFC; border: 1px solid var(--border); padding: 8px; border-radius: 6px; margin: 8px 0; font-size: 12px;">
+                                <p style="margin:0 0 4px 0; font-weight:700; color:var(--primary);">💬 Comunicación automática con el Cliente:</p>
+                                <button type="button" onclick="notificarClienteDemora(${alerta.idPedido})" style="background: var(--accent); font-size: 11px; padding: 6px; margin-bottom: 4px;">📲 Enviar Notificación de Auxilio al Cliente</button>
+                            </div>
+
+                            <div style="display: flex; gap: 6px; margin-top: 8px;">
+                                <button type="button" onclick="liberarPedidoParaOtroCadete(${alerta.idPedido})" style="background: #D97706; font-size: 11px; padding: 6px; flex:1;">🔄 Liberar al Pool</button>
+                                <button type="button" onclick="resolverAlertaCadete(${alerta.id})" style="background: var(--success); font-size: 11px; padding: 6px; flex:1;">✓ Resolver Incidente</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            let htmlPedidos = datos.listaPedidosGlobales.map(p => {
+                let st = (p.estado || '').toLowerCase();
+                let esFinalizado = st.includes('entregado') || st.includes('cerrado') || st.includes('cancelado');
+                
+                let tiempoMs = Date.now() - (p.id || Date.now());
+                let minutosTranscurridos = Math.floor(tiempoMs / 60000);
+                
+                let claseColor = 'pedido-verde';
+                if (p.esCancelada) {
+                    claseColor = '';
+                } else if (!esFinalizado) {
+                    if (minutosTranscurridos > 25) claseColor = 'pedido-rojo';
+                    else if (minutosTranscurridos > 15) claseColor = 'pedido-amarillo';
+                }
+
+                return `
+                    <div class="pedido-admin-card ${claseColor}" style="${p.esCancelada ? 'border-left-color: var(--danger); background: #FFF5F5; opacity: 0.85;' : ''}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <b style="font-size:14px; color:var(--primary);">Orden #${p.id}</b>
+                            <span style="font-size:11px; font-weight:700; background:${p.esCancelada ? '#FEE2E2' : '#E2E8F0'}; color:${p.esCancelada ? '#991B1B' : '#0F172A'}; padding:2px 6px; border-radius:4px;">${p.estado || 'Activo'}</span>
+                        </div>
+                        <p style="margin:2px 0; font-size:12px;"><b>Comercio:</b> ${p.comercioNombre}</p>
+                        <p style="margin:2px 0; font-size:12px;"><b>Cliente:</b> ${p.cliente} (<a href="tel:${p.telefonoCliente}" style="color:var(--accent);">📞 ${p.telefonoCliente || 'Sin tel'}</a>)</p>
+                        <p style="margin:2px 0; font-size:12px;"><b>Destino:</b> ${p.direccion}</p>
+                        <p style="margin:2px 0; font-size:12px; color:${p.esCancelada ? 'var(--danger)' : 'var(--success)'};"><b>Total:</b> $${p.total} | <b>PIN:</b> ${p.codigoVerificacion}</p>
+                        <p style="margin:2px 0; font-size:11px; color:var(--text-muted);">⏱️ Tiempo transcurrido: aprox. ${minutosTranscurridos} min</p>
+
+                        ${!esFinalizado ? `
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:10px; border-top:1px dashed var(--border); padding-top:8px;">
+                                <button type="button" onclick="forzarRetiroAdmin('${p.comercioRut}',${p.id})" style="background:var(--warning); font-size:11px; padding:6px;">Forzar Retiro</button>
+                                <button type="button" onclick="forzarEntregaAdmin('${p.comercioRut}',${p.id})" style="background:var(--success); font-size:11px; padding:6px;">Forzar Entrega</button>
+                                <button type="button" onclick="liberarPedidoParaOtroCadete(${p.id})" style="background:#D97706; font-size:11px; padding:6px;">🔄 Liberar al Pool</button>
+                                <button type="button" onclick="transferirPedidoACadetePuntual(${p.id})" style="background:#2563EB; font-size:11px; padding:6px;">👤 Transferir Auxilio</button>
+                                <button type="button" onclick="cancelarOrdenAdmin('${p.comercioRut}',${p.id})" style="background:var(--danger); font-size:11px; padding:6px; grid-column: span 2;">Cancelar Orden</button>
+                            </div>
+                        ` : '<p style="font-size:11px; color:var(--text-muted); font-weight:700; margin:6px 0 0 0; text-align:right;">[Ciclo Cerrado / Finalizado]</p>'}
+                    </div>
+                `;
+            }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay órdenes registradas en el sistema.</p>';
+
+            container.innerHTML = `
+                ${htmlAlertasAcordeon ? `<div class="section-header" style="color:var(--danger); margin-top:0;"><span>🚨 Panel de Alertas Logísticas</span></div>${htmlAlertasAcordeon}` : ''}
+                <div class="section-header"><span>Control de Órdenes en Tiempo Real</span></div>
+                ${htmlPedidos}
+            `;
+        }
+
+        window.toggleAlertaDesplegable = function(idAlerta) {
+            alertasDesplegadas[idAlerta] = !alertasDesplegadas[idAlerta];
+            mostrarGestionPedidosAdmin();
+        };
+
+        window.notificarClienteDemora = function(idPedido) {
+            if (!idPedido) { alert("⚠️ No hay ID de pedido asociado a esta alerta."); return; }
+            let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
+            let pCliente = pedidosCliente.find(p => Number(p.id) === Number(idPedido));
+            if (pCliente) {
+                pCliente.estadoAvisoDemora = "Su pedido está demorado por inconveniente logístico menor. Reasignado a cadete de auxilio en camino.";
+                localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
+                window.dispatchEvent(new Event('storage'));
+                alert(`✅ Notificación enviada con éxito al cliente del pedido #${idPedido}.`);
+            } else {
+                alert("✅ Notificación registrada para el cliente del pedido #" + idPedido);
+            }
+        };
+
+        window.resolverAlertaCadete = function(idAlerta) {
+            let alertas = JSON.parse(localStorage.getItem('lt_alertas_cadetes')) || [];
+            alertas = alertas.map(a => {
+                if (Number(a.id) === Number(idAlerta)) {
+                    a.resuelta = true;
+                }
+                return a;
+            });
+            localStorage.setItem('lt_alertas_cadetes', JSON.stringify(alertas));
+            window.dispatchEvent(new Event('storage'));
+            alert("✅ Alerta marcada como resuelta.");
+            mostrarGestionPedidosAdmin();
+        };
+
+        window.liberarPedidoParaOtroCadete = function(idPedido) {
+            if (confirm(`¿Liberar la orden #${idPedido} al pool general para que la tome otro cadete?`)) {
+                let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+                pedidosCadete = pedidosCadete.map(pc => {
+                    if (Number(pc.id) === Number(idPedido)) {
+                        pc.estado = 'Disponible para retirar';
+                        pc.cadeteAsignado = null;
+                    }
+                    return pc;
+                });
+                localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+                window.dispatchEvent(new Event('storage'));
+                alert(`✅ Orden #${idPedido} devuelta al pool general.`);
+                mostrarGestionPedidosAdmin();
+            }
+        };
+
+        window.transferirPedidoACadetePuntual = function(idPedido) {
+            let auxilio = prompt("Ingrese el nombre o ID del cadete de auxilio:");
+            if (auxilio && auxilio.trim() !== "") {
+                let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+                pedidosCadete = pedidosCadete.map(pc => {
+                    if (Number(pc.id) === Number(idPedido)) {
+                        pc.cadeteAsignado = auxilio.trim();
+                        pc.estado = `Asignado a auxilio: ${auxilio.trim()}`;
+                    }
+                    return pc;
+                });
+                localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+                window.dispatchEvent(new Event('storage'));
+                alert(`✅ Orden #${idPedido} transferida al cadete: ${auxilio.trim()}`);
+                mostrarGestionPedidosAdmin();
+            }
+        };
+
+        window.forzarRetiroAdmin = function(rutComercio, idPedido) {
+            if (confirm(`¿Forzar el estado de RETIRO para la orden #${idPedido}?`)) {
+                actualizarEstadoOrdenAdmin(rutComercio, idPedido, 'Listo para Retirar (En Ruta/Cadete)');
+            }
+        };
+
+        window.forzarEntregaAdmin = function(rutComercio, idPedido) {
+            if (confirm(`¿Forzar la ENTREGA y cierre definitivo de la orden #${idPedido}?`)) {
+                actualizarEstadoOrdenAdmin(rutComercio, idPedido, 'Entregado y Cerrado');
+            }
+        };
+
+        window.cancelarOrdenAdmin = function(rutComercio, idPedido) {
+            if (confirm(`⚠️ ¿ESTÁ SEGURO DE CANCELAR LA ORDEN #${idPedido}? Esta acción anulará el cobro y la comisión.`)) {
+                actualizarEstadoOrdenAdmin(rutComercio, idPedido, 'Cancelado por Admin');
+            }
+        };
+
+        function actualizarEstadoOrdenAdmin(rutComercio, idPedido, nuevoEstado) {
+            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+            let emp = base.find(e => String(e.rut).trim() === String(rutComercio).trim());
+            
+            if (emp && emp.pedidos) {
+                let pedido = emp.pedidos.find(p => Number(p.id) === Number(idPedido));
+                if (pedido) {
+                    pedido.estado = nuevoEstado;
+                    localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+
+                    let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
+                    let pCliente = pedidosCliente.find(p => Number(p.id) === Number(idPedido));
+                    if (pCliente) {
+                        pCliente.estado = nuevoEstado;
+                        localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
+                    }
+
+                    window.dispatchEvent(new Event('storage'));
+                    alert(`✅ Orden #${idPedido} actualizada correctamente a: "${nuevoEstado}"`);
+                    mostrarGestionPedidosAdmin();
+                }
+            }
+        }
+
+        function mostrarLiquidacionEmpresas() {
+            actualizarMenuActivoAdmin(5);
+            let datos = obtenerDatosGlobalesSistema();
+            const container = document.getElementById('main-content-admin');
+
+            let filasEmpresas = datos.baseEmpresas.map(emp => {
+                let brutoEmpresa = 0;
+                let pedidosComercio = emp.pedidos || [];
+                
+                pedidosComercio.forEach(p => {
+                    let st = (p.estado || '').toLowerCase();
+                    if (!st.includes('cancelado')) {
+                        brutoEmpresa += (parseFloat(p.total) || 0);
+                    }
+                });
+
+                let comision = brutoEmpresa * 0.10;
+                let netoLiquido = brutoEmpresa - comision;
+
+                return `
+                    <tr>
+                        <td><b>${emp.nombre}</b><br><span style="font-size:10px; color:var(--text-muted);">${emp.rut}</span></td>
+                        <td style="text-align:center;">${pedidosComercio.length}</td>
+                        <td style="text-align:right;">$${brutoEmpresa.toFixed(2)}</td>
+                        <td style="text-align:right; color:var(--danger);">-$${comision.toFixed(2)}</td>
+                        <td style="text-align:right; font-weight:700; color:var(--success);">$${netoLiquido.toFixed(2)}</td>
+                    </tr>
+                `;
+            }).join('') || '<tr><td colspan="5" style="text-align:center; padding:15px; color:var(--text-muted);">No hay comercios registrados.</td></tr>';
+
+            container.innerHTML = `
+                <div class="section-header"><span>Liquidación a Comercios (Comisión 10%)</span></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Comercio</th>
+                                <th style="text-align:center;">Op.</th>
+                                <th style="text-align:right;">Bruto</th>
+                                <th style="text-align:right;">Com.</th>
+                                <th style="text-align:right;">Neto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filasEmpresas}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function actualizarMenuActivoAdmin(index) {
+            const botones = document.querySelectorAll('.bottom-nav .nav-item');
+            botones.forEach((btn, idx) => {
+                if (idx === index) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
         }
     </script>
 </body>
