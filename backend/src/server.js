@@ -12,8 +12,10 @@ const server = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 
-// Base de datos en memoria para sincronizar pedidos entre celular y PC en tiempo real
+// Bases de datos en memoria para sincronización en tiempo real
 let pedidosGlobales = [];
+let usuariosRegistrados = []; // Clientes, Cadetes y Empresas
+let catalogosEmpresas = {};   // Almacena los productos por ID de empresa
 
 // Ubicación exacta de la carpeta raíz desde backend/src/
 const rootDir = path.resolve(__dirname, '../../');
@@ -38,7 +40,57 @@ app.get('/admin', (req, res) => {
 });
 
 // ==========================================
-// ENDPOINTS REST API (FALTABAN ESTOS)
+// ENDPOINTS REST API - USUARIOS Y REGISTROS
+// ==========================================
+
+// Registrar o iniciar sesión un usuario
+app.post('/api/usuarios/registro', (req, res) => {
+  const { rol, nombre, identificador, giroComercial } = req.body; 
+  // rol: 'cliente', 'empresa', 'cadete'
+  // giroComercial: 'gastronomia', 'electronica', 'indumentaria', etc.
+
+  let usuarioExistente = usuariosRegistrados.find(u => u.identificador === identificador);
+  if (usuarioExistente) {
+    return res.json({ success: true, message: "Sesión iniciada con éxito", usuario: usuarioExistente });
+  }
+
+  const nuevoUsuario = {
+    id: Date.now().toString(),
+    rol,
+    nombre,
+    identificador, // Puede ser Cédula, WhatsApp o RUT
+    giroComercial: giroComercial || 'gastronomia',
+    etiquetaPanel: (giroComercial && giroComercial !== 'gastronomia') ? 'Preparación / Expedición' : 'Cocina'
+  };
+
+  usuariosRegistrados.push(nuevoUsuario);
+  console.log(`👤 Nuevo usuario registrado [${rol}]: ${nombre}`);
+  res.status(201).json({ success: true, message: "Usuario registrado correctamente", usuario: nuevoUsuario });
+});
+
+// ==========================================
+// ENDPOINTS REST API - CATÁLOGOS DE EMPRESAS
+// ==========================================
+
+// Guardar o actualizar productos del catálogo de una empresa
+app.post('/api/empresas/:id/catalogo', (req, res) => {
+  const { id } = req.params;
+  const { productos } = req.body; // Array de productos
+
+  catalogosEmpresas[id] = productos;
+  console.log(`📦 Catálogo actualizado para empresa ID: ${id} (${productos.length} productos)`);
+  
+  res.json({ success: true, message: "Catálogo guardado correctamente", productos });
+});
+
+// Obtener el catálogo de una empresa específica
+app.get('/api/empresas/:id/catalogo', (req, res) => {
+  const { id } = req.params;
+  res.json(catalogosEmpresas[id] || []);
+});
+
+// ==========================================
+// ENDPOINTS REST API - PEDIDOS Y KILL SWITCH
 // ==========================================
 
 // Obtener todos los pedidos
@@ -52,11 +104,27 @@ app.post('/api/pedidos', (req, res) => {
   pedidosGlobales.push(nuevoPedido);
   
   console.log(`📦 Nuevo pedido recibido en servidor ID: ${nuevoPedido.id}`);
-
-  // Notificar en tiempo real a todas las pantallas conectadas (Empresa, Cadete, etc.)
   io.emit('nuevo_pedido_servidor', nuevoPedido);
 
   res.status(201).json({ success: true, message: "Pedido registrado en el servidor", pedido: nuevoPedido });
+});
+
+// KILL SWITCH: Cancelar / Eliminar un pedido desde el Admin o Sistema
+app.delete('/api/pedidos/:id', (req, res) => {
+  const { id } = req.params;
+  const index = pedidosGlobales.findIndex(p => p.id == id);
+
+  if (index !== -1) {
+    const pedidoEliminado = pedidosGlobales.splice(index, 1)[0];
+    console.log(`🚨 KILL SWITCH ACTIVADO: Pedido ID ${id} eliminado por administración.`);
+    
+    // Notificar a todas las pantallas para que lo borren al instante
+    io.emit('pedido_cancelado_admin', { id });
+
+    return res.json({ success: true, message: "Pedido eliminado correctamente", pedido: pedidoEliminado });
+  }
+
+  res.status(404).json({ success: false, message: "Pedido no encontrado" });
 });
 
 // Configuración de WebSockets (Socket.io)
@@ -85,7 +153,11 @@ io.on('connection', (socket) => {
 
 // Diagnóstico
 app.get('/api/status', (req, res) => {
-  res.json({ status: "API de Lo Tengo funcionando correctamente 🚀", totalPedidos: pedidosGlobales.length });
+  res.json({ 
+    status: "API de Lo Tengo funcionando correctamente 🚀", 
+    totalPedidos: pedidosGlobales.length,
+    totalUsuarios: usuariosRegistrados.length 
+  });
 });
 
 const PORT = process.env.PORT || 3000;
