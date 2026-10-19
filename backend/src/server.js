@@ -12,7 +12,10 @@ const server = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 
-// Ubicación exacta de la carpeta raíz (lo-tengo-final) desde backend/src/
+// Base de datos en memoria para sincronizar pedidos entre celular y PC en tiempo real
+let pedidosGlobales = [];
+
+// Ubicación exacta de la carpeta raíz desde backend/src/
 const rootDir = path.resolve(__dirname, '../../');
 
 // Servir archivos estáticos
@@ -32,6 +35,28 @@ app.get('/cadete', (req, res) => {
 
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(rootDir, 'admin/index.html'));
+});
+
+// ==========================================
+// ENDPOINTS REST API (FALTABAN ESTOS)
+// ==========================================
+
+// Obtener todos los pedidos
+app.get('/api/pedidos', (req, res) => {
+  res.json(pedidosGlobales);
+});
+
+// Recibir un nuevo pedido desde el Cliente y difundirlo
+app.post('/api/pedidos', (req, res) => {
+  const nuevoPedido = req.body;
+  pedidosGlobales.push(nuevoPedido);
+  
+  console.log(`📦 Nuevo pedido recibido en servidor ID: ${nuevoPedido.id}`);
+
+  // Notificar en tiempo real a todas las pantallas conectadas (Empresa, Cadete, etc.)
+  io.emit('nuevo_pedido_servidor', nuevoPedido);
+
+  res.status(201).json({ success: true, message: "Pedido registrado en el servidor", pedido: nuevoPedido });
 });
 
 // Configuración de WebSockets (Socket.io)
@@ -60,7 +85,7 @@ io.on('connection', (socket) => {
 
 // Diagnóstico
 app.get('/api/status', (req, res) => {
-  res.json({ status: "API de Lo Tengo funcionando correctamente 🚀" });
+  res.json({ status: "API de Lo Tengo funcionando correctamente 🚀", totalPedidos: pedidosGlobales.length });
 });
 
 const PORT = process.env.PORT || 3000;
