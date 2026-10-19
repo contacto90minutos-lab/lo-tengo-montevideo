@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LO TENGO - Montevideo</title>
+    <title>LO TENGO - Clientes</title>
     <style>
         :root {
             --primary: #FF5722;
@@ -31,6 +31,66 @@
             align-items: center;
             min-height: 100vh;
             color: var(--text-main);
+            overflow-x: hidden;
+        }
+
+        /* Splash Screen Animado Minimalista */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #111827;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .splash-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: logoScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .splash-isologo {
+            width: 54px;
+            height: 54px;
+            background: var(--primary-gradient);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-weight: 900;
+            font-size: 26px;
+            letter-spacing: -1px;
+            box-shadow: 0 10px 25px rgba(255, 87, 34, 0.4);
+        }
+
+        .splash-texto {
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .splash-sub {
+            color: #9CA3AF;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-top: 14px;
+            text-transform: uppercase;
+        }
+
+        @keyframes logoScale {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         #app-container {
@@ -60,7 +120,20 @@
             z-index: 10;
         }
 
-        .header-app h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; }
+        .header-app h1 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
+
+        .brand-badge {
+            background: var(--primary-gradient);
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 900;
+        }
 
         .content-body { padding: 20px; flex: 1; overflow-y: auto; padding-bottom: 110px; }
 
@@ -123,7 +196,6 @@
         .estado-entregado { background: #D1FAE5; color: #047857; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-        /* Botones de propina interactivos */
         .btn-propina-opcion { padding: 8px; font-size: 12px; font-weight: 700; border-radius: 8px; border: 1.5px solid var(--card-border); background: #E5E7EB; color: var(--text-main); cursor: pointer; box-shadow: none; transition: all 0.2s; }
         .btn-propina-opcion.activo { background: var(--primary); color: #fff; border-color: var(--primary); }
 
@@ -135,9 +207,18 @@
 </head>
 <body>
 
+    <!-- Splash Screen Inicial -->
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <div class="splash-isologo">L+T</div>
+            <div class="splash-texto">LO TENGO</div>
+        </div>
+        <div class="splash-sub">Ecosistema Logístico</div>
+    </div>
+
     <div id="app-container">
         <div class="header-app">
-            <h1><span style="color: var(--primary);">LO</span> TENGO</h1>
+            <h1><div class="brand-badge">L+T</div><span style="color: var(--primary);">LO</span> TENGO</h1>
             <span id="header-user-info" style="font-size: 12px; font-weight: 700; background: #F3F4F6; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--card-border);">📍 Montevideo</span>
         </div>
         
@@ -203,6 +284,15 @@
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
         document.addEventListener("DOMContentLoaded", () => {
+            // Ocultar Splash Screen después de 1.5 segundos
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    splash.style.visibility = 'hidden';
+                }
+            }, 1500);
+
             verificarSesionCliente();
             configurarEventosLogin();
             inicializarDatosDemoSiEsNecesario();
@@ -212,7 +302,7 @@
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
             });
 
-            // Polling en vivo cada 2 segundos con Render
+            // Polling en vivo cada 2 segundos
             setInterval(() => {
                 sincronizarPedidosDesdeServidor();
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
@@ -240,7 +330,7 @@
                     }
                 }
             } catch (e) {
-                // Modo offline respaldado por localStorage
+                // Sincronización offline
             }
         }
 
@@ -286,7 +376,7 @@
 
             const btnIng = document.getElementById('btnIniciarSesion');
             if (btnIng) {
-                btnIng.onclick = () => {
+                btnIng.onclick = async () => {
                     const tel = document.getElementById('loginTelefono').value.trim();
                     const pass = document.getElementById('loginPassword').value.trim();
                     const usuarios = JSON.parse(localStorage.getItem('lt_base_usuarios')) || [];
@@ -299,20 +389,38 @@
                     }
                     if (!usr) { alert("❌ Credenciales incorrectas. Probá 099123456 / 1234"); return; }
 
+                    // Registrar sesión en el backend para vinculación con el cel
+                    try {
+                        await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ rol: 'cliente', nombre: usr.nombre, identificador: usr.telefono })
+                        });
+                    } catch(e) { console.warn("Backend offline"); }
+
                     localStorage.setItem('lt_sesion_activa', JSON.stringify(usr));
                     location.reload();
                 };
             }
         }
 
-        function loginConGoogle() {
+        async function loginConGoogle() {
             let usuarioGoogle = { nombre: "Francisco Claudino", telefono: "099000000", direccion: "Montevideo", email: "francisco@lotengo.uy" };
+            
+            try {
+                await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rol: 'cliente', nombre: usuarioGoogle.nombre, identificador: usuarioGoogle.telefono })
+                });
+            } catch(e) {}
+
             localStorage.setItem('lt_sesion_activa', JSON.stringify(usuarioGoogle));
             alert("✅ ¡Sesión iniciada con Google!");
             location.reload();
         }
 
-        function completarRegistroCliente() {
+        async function completarRegistroCliente() {
             let nombre = document.getElementById('regNombre').value.trim();
             let telefono = document.getElementById('regTelefono').value.trim();
             let direccion = document.getElementById('regDireccion').value.trim();
@@ -329,6 +437,15 @@
             let nuevoU = { nombre, telefono, direccion: direccion || 'Montevideo', password };
             usuarios.push(nuevoU);
             localStorage.setItem('lt_base_usuarios', JSON.stringify(usuarios));
+
+            try {
+                await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rol: 'cliente', nombre, identificador: telefono })
+                });
+            } catch(e) {}
+
             localStorage.setItem('lt_sesion_activa', JSON.stringify(nuevoU));
             alert("✅ ¡Registro exitoso!");
             location.reload();
@@ -490,7 +607,7 @@
                     </div>
                 </div>
 
-                <button type="button" onclick="confirmarPedidoCompra('${rut}', ${productoId})" style="background:#0284C7; font-weight:800;">💙 Pagar con Mercado Pago</button>
+                <button type="button" onclick="confirmarPedidoCompra('${rut}', ${productoId})" style="background:#0284C7; font-weight:800;">💙 Confirmar y Pagar</button>
             `;
         }
 
@@ -551,7 +668,7 @@
         }
 
         // ==========================================
-        // MÓDULO DE CADETERÍA EXPRESS (CON PROPINA)
+        // MÓDULO DE CADETERÍA EXPRESS
         // ==========================================
         let tipoVehiculoCadete = 'moto';
         let contadorDestinosCadete = 1;
@@ -794,7 +911,6 @@
                     }
                 }
 
-                // Alerta de proximidad de 200m si está en camino
                 let alertaProximidad = '';
                 if (st.includes('camino') || st.includes('ruta')) {
                     alertaProximidad = `

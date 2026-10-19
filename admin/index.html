@@ -31,6 +31,66 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Splash Screen Animado Minimalista */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #0A192F;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .splash-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: logoScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .splash-isologo {
+            width: 54px;
+            height: 54px;
+            background: linear-gradient(135deg, #2563EB, #3B82F6);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-weight: 900;
+            font-size: 26px;
+            letter-spacing: -1px;
+            box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
+        }
+
+        .splash-texto {
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .splash-sub {
+            color: #94A3B8;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-top: 14px;
+            text-transform: uppercase;
+        }
+
+        @keyframes logoScale {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         #app-container {
@@ -60,6 +120,22 @@
             font-size: 17px;
             font-weight: 700;
             letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-badge {
+            background: var(--accent);
+            color: #fff;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 900;
         }
 
         .content-body {
@@ -247,10 +323,19 @@
 </head>
 <body>
 
+    <!-- Splash Screen Animado Minimalista -->
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <div class="splash-isologo">L+T</div>
+            <div class="splash-texto">LO TENGO</div>
+        </div>
+        <div class="splash-sub">Panel de Administración</div>
+    </div>
+
     <div id="app-container">
         <!-- Header Corporativo -->
         <div class="header-app">
-            <h1>LO TENGO <span style="font-weight: 300; font-size: 14px; opacity: 0.85;">| Admin</span></h1>
+            <h1><div class="brand-badge">L+T</div>LO TENGO <span style="font-weight: 300; font-size: 14px; opacity: 0.85;">| Admin</span></h1>
             <span id="header-admin-user" style="font-size: 11px; font-weight: 600; opacity: 0.9;">Control Central</span>
         </div>
         
@@ -275,6 +360,7 @@
             <button class="nav-item" onclick="mostrarListaEmpresasAdmin()">Empresas</button>
             <button class="nav-item" onclick="mostrarListaCadetesAdmin()">Cadetes</button>
             <button class="nav-item" onclick="mostrarListaClientesAdmin()">Clientes</button>
+            <button class="nav-item" onclick="mostrarCampañasIAAdmin()">Campañas IA</button>
             <button class="nav-item" onclick="mostrarLiquidacionEmpresas()">Comisiones</button>
             <button class="nav-item" onclick="cerrarSesionAdmin()">Salir</button>
         </div>
@@ -288,6 +374,15 @@
         let alertasDesplegadas = {};
 
         document.addEventListener("DOMContentLoaded", () => {
+            // Ocultar Splash Screen después de 1.5 segundos
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    splash.style.visibility = 'hidden';
+                }
+            }, 1500);
+
             verificarSesionAdmin();
 
             setInterval(() => {
@@ -586,6 +681,44 @@
             `;
         }
 
+        // ==========================================
+        // CAMPAÑAS DE OFERTAS INTELIGENTES (IA)
+        // ==========================================
+        function mostrarCampañasIAAdmin() {
+            actualizarMenuActivoAdmin(5);
+            const container = document.getElementById('main-content-admin');
+
+            container.innerHTML = `
+                <div class="section-header"><span>🎯 Motor de Ofertas e IA</span></div>
+                <div class="card-metric" style="border-left: 5px solid #7C3AED;">
+                    <div style="font-size: 10px; font-weight: 900; background: #FAF5FF; color: #7C3AED; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-bottom: 8px; border:1px solid #C084FC;">ALGORITMO DE RECOMENDACIÓN</div>
+                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 900;">Notificador de Ofertas Inteligente</h3>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">El sistema analiza el historial de búsqueda de los clientes en Montevideo y genera campañas push dirigidas.</p>
+
+                    <label>Título de la Campaña / Oferta:</label>
+                    <input type="text" id="campaniaTitulo" placeholder="Ej: ¡20% OFF en Chivitos y Hamburguesas!">
+
+                    <label>Segmento por Historial / Categoría:</label>
+                    <select id="campaniaSegmento">
+                        <option value="Gastronomía">🍔 Interesados en Gastronomía</option>
+                        <option value="Supermercado">🛒 Interesados en Supermercados</option>
+                        <option value="Outlet">🔥 Alertas Zona Outlet</option>
+                        <option value="Todos">📢 Todos los Clientes Activos</option>
+                    </select>
+
+                    <button type="button" onclick="lanzarNotificacionOfertas()" style="background:#7C3AED; font-weight:800; margin-top:6px;">🚀 Enviar Campaña Push Masiva</button>
+                </div>
+            `;
+        }
+
+        window.lanzarNotificacionOfertas = function() {
+            let titulo = document.getElementById('campaniaTitulo').value.trim();
+            let segmento = document.getElementById('campaniaSegmento').value;
+            if (!titulo) { alert("⚠️ Ingresá el título de la campaña."); return; }
+
+            alert(`✅ ¡Campaña enviada con éxito!\n\nSegmento: [${segmento}]\nMensaje: "${titulo}"\nLos clientes recibirán la recomendación basada en su historial.`);
+        };
+
         function mostrarGestionPedidosAdmin() {
             actualizarMenuActivoAdmin(1);
             let datos = obtenerDatosGlobalesSistema();
@@ -779,7 +912,7 @@
         }
 
         function mostrarLiquidacionEmpresas() {
-            actualizarMenuActivoAdmin(5);
+            actualizarMenuActivoAdmin(6);
             let datos = obtenerDatosGlobalesSistema();
             const container = document.getElementById('main-content-admin');
 

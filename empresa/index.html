@@ -25,6 +25,66 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Splash Screen Animado Minimalista */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #002855;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .splash-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: logoScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .splash-isologo {
+            width: 54px;
+            height: 54px;
+            background: linear-gradient(135deg, #E85B04, #ff8533);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-weight: 900;
+            font-size: 26px;
+            letter-spacing: -1px;
+            box-shadow: 0 10px 25px rgba(232, 91, 4, 0.4);
+        }
+
+        .splash-texto {
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .splash-sub {
+            color: #9CA3AF;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-top: 14px;
+            text-transform: uppercase;
+        }
+
+        @keyframes logoScale {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         #app-container {
@@ -54,6 +114,22 @@
             margin: 0;
             font-size: 20px;
             letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-badge {
+            background: var(--secondary);
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 900;
         }
 
         .content-body {
@@ -203,10 +279,19 @@
 </head>
 <body>
 
+    <!-- Splash Screen Animado Minimalista -->
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <div class="splash-isologo">L+T</div>
+            <div class="splash-texto">LO TENGO</div>
+        </div>
+        <div class="splash-sub">Panel Empresas</div>
+    </div>
+
     <div id="app-container">
         <!-- Header -->
         <div class="header-app">
-            <h1><span style="color:var(--secondary);">LO</span> TENGO <small style="font-size:11px; opacity:0.8;">[Empresas]</small></h1>
+            <h1><div class="brand-badge">L+T</div><span style="color:var(--secondary);">LO</span> TENGO <small style="font-size:11px; opacity:0.8;">[Empresas]</small></h1>
             <span id="header-empresa-info" style="font-size: 11px; opacity: 0.9;">Panel Comercio</span>
         </div>
         
@@ -287,6 +372,15 @@
         let ultimoConteoPedidos = 0;
 
         document.addEventListener("DOMContentLoaded", () => {
+            // Ocultar Splash Screen después de 1.5 segundos
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    splash.style.visibility = 'hidden';
+                }
+            }, 1500);
+
             inicializarBaseDatosEmpresasPorDefecto();
             verificarSesionEmpresa();
             configurarEventosLoginEmpresa();
@@ -466,7 +560,7 @@
             }
         }
 
-        function ejecutarLoginEmpresa() {
+        async function ejecutarLoginEmpresa() {
             const rutInput = document.getElementById('loginRutEmpresa').value.trim();
             const passInput = document.getElementById('loginPassEmpresa').value.trim();
             const recordar = document.getElementById('recordarUsuarioEmpresa').checked;
@@ -496,11 +590,19 @@
                 localStorage.removeItem('lt_recordar_rut_empresa');
             }
 
+            try {
+                await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rol: 'empresa', nombre: emp.nombre, identificador: emp.rut, giroComercial: emp.giro })
+                });
+            } catch(e) {}
+
             localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
             location.reload();
         }
 
-        function completarRegistroEmpresa() {
+        async function completarRegistroEmpresa() {
             let nombre = document.getElementById('regEmpNombre').value.trim();
             let rut = document.getElementById('regEmpRut').value.trim();
             let giro = document.getElementById('regEmpGiro').value;
@@ -525,9 +627,18 @@
             }
         }
 
-        function guardarEmpresaConLogo(base, nuevaEmpresa) {
+        async function guardarEmpresaConLogo(base, nuevaEmpresa) {
             base.push(nuevaEmpresa);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+
+            try {
+                await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rol: 'empresa', nombre: nuevaEmpresa.nombre, identificador: nuevaEmpresa.rut, giroComercial: nuevaEmpresa.giro })
+                });
+            } catch(e) {}
+
             localStorage.setItem('lt_sesion_empresa', JSON.stringify(nuevaEmpresa));
             alert("✅ ¡Comercio registrado con éxito y sincronizado con la App Cliente!");
             location.reload();
@@ -686,7 +797,7 @@
             }
         }
 
-        function procesarGuardadoProducto(nombre, precio, imagen, outlet, destacado) {
+        async function procesarGuardadoProducto(nombre, precio, imagen, outlet, destacado) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
             let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
@@ -705,11 +816,19 @@
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
             localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
 
+            try {
+                await fetch(`${BACKEND_URL}/api/empresas/${emp.rut}/catalogo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productos: emp.productos })
+                });
+            } catch(e) {}
+
             alert("✅ ¡Producto agregado con éxito y sincronizado con la App Cliente!");
             mostrarGestionCatalogo();
         }
 
-        function eliminarProductoComercio(idProd) {
+        async function eliminarProductoComercio(idProd) {
             if (!confirm("¿Estás seguro de eliminar este producto?")) return;
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
@@ -718,6 +837,14 @@
             emp.productos = emp.productos.filter(p => p.id !== idProd);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
             localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
+
+            try {
+                await fetch(`${BACKEND_URL}/api/empresas/${emp.rut}/catalogo`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productos: emp.productos })
+                });
+            } catch(e) {}
 
             mostrarGestionCatalogo();
         }

@@ -27,6 +27,66 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Splash Screen Animado Minimalista */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #002855;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+        }
+
+        .splash-logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: logoScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .splash-isologo {
+            width: 54px;
+            height: 54px;
+            background: linear-gradient(135deg, #E85B04, #ff8533);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-weight: 900;
+            font-size: 26px;
+            letter-spacing: -1px;
+            box-shadow: 0 10px 25px rgba(232, 91, 4, 0.4);
+        }
+
+        .splash-texto {
+            color: #FFFFFF;
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .splash-sub {
+            color: #9CA3AF;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-top: 14px;
+            text-transform: uppercase;
+        }
+
+        @keyframes logoScale {
+            0% { opacity: 0; transform: scale(0.8); }
+            100% { opacity: 1; transform: scale(1); }
         }
 
         #app-container {
@@ -56,6 +116,22 @@
             margin: 0;
             font-size: 20px;
             letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .brand-badge {
+            background: var(--secondary);
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 900;
         }
 
         .content-body {
@@ -196,6 +272,15 @@
 </head>
 <body>
 
+    <!-- Splash Screen Animado Minimalista -->
+    <div id="splash-screen">
+        <div class="splash-logo-container">
+            <div class="splash-isologo">L+T</div>
+            <div class="splash-texto">LO TENGO</div>
+        </div>
+        <div class="splash-sub">Panel Cadetes</div>
+    </div>
+
     <!-- Notificación Flotante -->
     <div id="banner-notificacion-flotante">
         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -208,7 +293,7 @@
     <div id="app-container">
         <!-- Header -->
         <div class="header-app">
-            <h1><span style="color:var(--secondary);">LO</span> TENGO <small style="font-size:11px; opacity:0.8;">[Cadetes Mvd]</small></h1>
+            <h1><div class="brand-badge">L+T</div><span style="color:var(--secondary);">LO</span> TENGO <small style="font-size:11px; opacity:0.8;">[Cadetes Mvd]</small></h1>
             <span id="header-cadete-info" style="font-size: 11px; opacity: 0.9;">Panel Delivery</span>
         </div>
         
@@ -295,6 +380,15 @@
         let ultimoConteoPedidosCadete = 0;
 
         document.addEventListener("DOMContentLoaded", () => {
+            // Ocultar Splash Screen después de 1.5 segundos
+            setTimeout(() => {
+                const splash = document.getElementById('splash-screen');
+                if (splash) {
+                    splash.style.opacity = '0';
+                    splash.style.visibility = 'hidden';
+                }
+            }, 1500);
+
             verificarSesionCadete();
             configurarEventosLoginCadete();
             sincronizarPedidosDesdeServidor();
@@ -405,7 +499,7 @@
 
             const btnIng = document.getElementById('btnIngresarCadete');
             if (btnIng) {
-                btnIng.onclick = () => {
+                btnIng.onclick = async () => {
                     const ci = document.getElementById('loginCiCadete').value.trim();
                     const pass = document.getElementById('loginPassCadete').value.trim();
                     let base = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
@@ -426,6 +520,14 @@
                         }
                     }
 
+                    try {
+                        await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ rol: 'cadete', nombre: cadete.nombre, identificador: cadete.ci })
+                        });
+                    } catch(e) {}
+
                     reproducirAlertaVoz("Lo tengo");
                     localStorage.setItem('lt_sesion_cadete', JSON.stringify(cadete));
                     location.reload();
@@ -433,7 +535,7 @@
             }
         }
 
-        function completarRegistroCadete() {
+        async function completarRegistroCadete() {
             let nombre = document.getElementById('regCadNombre').value.trim();
             let ci = document.getElementById('regCadCi').value.trim();
             let telefono = document.getElementById('regCadTel').value.trim();
@@ -448,6 +550,15 @@
             let nuevoCadete = { ci, nombre, telefono, vehiculo, password, entregas: [] };
             base.push(nuevoCadete);
             localStorage.setItem('lt_base_cadetes', JSON.stringify(base));
+
+            try {
+                await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rol: 'cadete', nombre, identificador: ci })
+                });
+            } catch(e) {}
+
             localStorage.setItem('lt_sesion_cadete', JSON.stringify(nuevoCadete));
 
             alert("✅ ¡Registro de cadete exitoso!");
@@ -500,7 +611,6 @@
                 if (emp.pedidos) {
                     emp.pedidos.forEach(p => {
                         let st = (p.estado || '').toLowerCase().trim();
-                        // Detecta tanto pedidos de comercios liberados como pedidos de Cadetería Express (Punto A a B)
                         let esPedidoAbierto = !p.cadeteAsignado && (
                             st.includes('listo para retirar') || 
                             st.includes('en ruta') || 
@@ -587,7 +697,7 @@
             `;
         }
 
-        window.tomarPedidoCadete = function(idPedido) {
+        window.tomarPedidoCadete = async function(idPedido) {
             let sesion = obtenerCadeteActualizado();
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
             let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
@@ -655,7 +765,6 @@
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
             let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
 
-            // Consolidar también desde la base de empresas los pedidos asignados a este cadete por su CI o Nombre
             baseEmpresas.forEach(emp => {
                 if (emp.pedidos) {
                     emp.pedidos.forEach(p => {
