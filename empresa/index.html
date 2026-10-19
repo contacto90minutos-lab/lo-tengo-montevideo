@@ -956,7 +956,6 @@
                 localStorage.setItem('lt_base_empresas', JSON.stringify(base));
                 localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
 
-                // Sincronizar estado en backend de Render
                 fetch(`${BACKEND_URL}/api/pedidos`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

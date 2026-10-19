@@ -287,10 +287,10 @@
             const btnIng = document.getElementById('btnIniciarSesion');
             if (btnIng) {
                 btnIng.onclick = () => {
-                    const tel = document.getElementById('loginTelefono').value;
-                    const pass = document.getElementById('loginPassword').value;
+                    const tel = document.getElementById('loginTelefono').value.trim();
+                    const pass = document.getElementById('loginPassword').value.trim();
                     const usuarios = JSON.parse(localStorage.getItem('lt_base_usuarios')) || [];
-                    let usr = usuarios.find(u => u.telefono === tel && u.password === pass);
+                    let usr = usuarios.find(u => String(u.telefono).trim() === tel && String(u.password || '').trim() === pass);
 
                     if (!usr && tel === "099123456" && pass === "1234") {
                         usr = { nombre: "Cliente Demo Montevideo", telefono: "099123456", direccion: "Pocitos, Montevideo", password: "1234" };
@@ -313,14 +313,19 @@
         }
 
         function completarRegistroCliente() {
-            let nombre = document.getElementById('regNombre').value;
-            let telefono = document.getElementById('regTelefono').value;
-            let direccion = document.getElementById('regDireccion').value;
-            let password = document.getElementById('regPassword').value;
+            let nombre = document.getElementById('regNombre').value.trim();
+            let telefono = document.getElementById('regTelefono').value.trim();
+            let direccion = document.getElementById('regDireccion').value.trim();
+            let password = document.getElementById('regPassword').value.trim();
 
             if (!nombre || !telefono || !password) { alert("⚠️ Completá los campos obligatorios."); return; }
 
             let usuarios = JSON.parse(localStorage.getItem('lt_base_usuarios')) || [];
+            if (usuarios.some(u => String(u.telefono).trim() === telefono)) {
+                alert("⚠️ Ya existe un usuario registrado con este número de WhatsApp.");
+                return;
+            }
+
             let nuevoU = { nombre, telefono, direccion: direccion || 'Montevideo', password };
             usuarios.push(nuevoU);
             localStorage.setItem('lt_base_usuarios', JSON.stringify(usuarios));
@@ -418,7 +423,7 @@
 
         function verCatalogoComercio(rut) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = base.find(e => e.rut === rut);
+            let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
             if (!emp) return;
 
             const container = document.getElementById('main-content');
@@ -451,8 +456,8 @@
         function iniciarSeleccionUbicacionPedido(rut, productoId) {
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = base.find(e => e.rut === rut);
-            let p = emp.productos.find(prod => prod.id === productoId);
+            let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
+            let p = emp.productos.find(prod => Number(prod.id) === Number(productoId));
             let totalBase = p.precio + 90;
 
             const container = document.getElementById('main-content');
@@ -506,8 +511,8 @@
             let dir = document.getElementById('dirEntregaFinal').value;
             let propina = Number(document.getElementById('inputPropina').value) || 0;
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = base.find(e => e.rut === rut);
-            let p = emp.productos.find(prod => prod.id === productoId);
+            let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
+            let p = emp.productos.find(prod => Number(prod.id) === Number(productoId));
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
             let total = p.precio + 90 + propina;
 
