@@ -34,6 +34,56 @@
             overflow-x: hidden;
         }
 
+        /* Sistema de Toasts Elegantes */
+        #toast-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 90%;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        .toast-msg {
+            background: #111827;
+            color: #FFF;
+            padding: 14px 18px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: fadeInOut 3s ease forwards;
+            pointer-events: auto;
+        }
+        .toast-msg.success { background: #059669; }
+        .toast-msg.error { background: #DC2626; }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
+
+        /* Spinner de Carga */
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid #FFF;
+            border-top: 2px solid transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         /* Splash Screen Animado Minimalista */
         #splash-screen {
             position: fixed;
@@ -199,6 +249,11 @@
         .btn-propina-opcion { padding: 8px; font-size: 12px; font-weight: 700; border-radius: 8px; border: 1.5px solid var(--card-border); background: #E5E7EB; color: var(--text-main); cursor: pointer; box-shadow: none; transition: all 0.2s; }
         .btn-propina-opcion.activo { background: var(--primary); color: #fff; border-color: var(--primary); }
 
+        /* Pestañas de Pedidos */
+        .pestañas-pedidos { display: flex; gap: 10px; margin-bottom: 16px; border-bottom: 2px solid var(--card-border); padding-bottom: 10px; }
+        .tab-btn { flex: 1; padding: 10px; background: #E5E7EB; color: var(--text-muted); border: none; border-radius: var(--radius-md); font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: none; transition: all 0.2s; }
+        .tab-btn.activo { background: var(--primary); color: #FFF; }
+
         .bottom-nav { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--card-border); display: flex; justify-content: space-around; padding: 12px 0; z-index: 10; }
         .nav-item { background: none; border: none; color: var(--text-muted); font-size: 11px; cursor: pointer; display: flex; flex-direction: column; align-items: center; font-weight: 600; }
         .nav-item svg { width: 22px; height: 22px; margin-bottom: 4px; fill: currentColor; }
@@ -206,6 +261,8 @@
     </style>
 </head>
 <body>
+
+    <div id="toast-container"></div>
 
     <!-- Splash Screen Inicial -->
     <div id="splash-screen">
@@ -219,7 +276,7 @@
     <div id="app-container">
         <div class="header-app">
             <h1><div class="brand-badge">L+T</div><span style="color: var(--primary);">LO</span> TENGO</h1>
-            <span id="header-user-info" style="font-size: 12px; font-weight: 700; background: #F3F4F6; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--card-border);">📍 Montevideo</span>
+            <span id="header-user-info" style="font-size: 12px; font-weight: 700; background: #F3F4F6; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--card-border); cursor: pointer;" onclick="mostrarMiPerfil()">📍 Montevideo</span>
         </div>
         
         <div class="content-body" id="main-content">
@@ -256,6 +313,8 @@
                 <input type="text" id="regNombre" placeholder="Tu nombre">
                 <label>WhatsApp:</label>
                 <input type="tel" id="regTelefono" placeholder="Ej: 099123456">
+                <label>Correo Electrónico:</label>
+                <input type="email" id="regEmail" placeholder="correo@ejemplo.com">
                 <label>Dirección principal en Montevideo:</label>
                 <input type="text" id="regDireccion" placeholder="Calle, número y barrio">
                 <label>Contraseña:</label>
@@ -278,13 +337,25 @@
             <button class="nav-item" onclick="mostrarPedidosActivos()">
                 <svg viewBox="0 0 24 24"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4zm10 15H4V8h16v11z"/></svg>Pedidos
             </button>
+            <button class="nav-item" onclick="mostrarMiPerfil()">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>Perfil
+            </button>
         </div>
     </div>
     <script>
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast-msg ${type}`;
+            toast.innerHTML = `<span>${type === 'success' ? '✅' : '⚠️'}</span> <span>${message}</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 3500);
+        }
+
         document.addEventListener("DOMContentLoaded", () => {
-            // Ocultar Splash Screen después de 1.5 segundos
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
@@ -302,7 +373,6 @@
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
             });
 
-            // Polling en vivo cada 2 segundos para sincronizar catálogo y pedidos del servidor
             setInterval(() => {
                 sincronizarEmpresasYPedidosDesdeServidor();
                 if (document.getElementById('contenedor-cards-pedidos')) renderizarListaPedidos();
@@ -311,7 +381,6 @@
 
         async function sincronizarEmpresasYPedidosDesdeServidor() {
             try {
-                // 1. Sincronizar listado de empresas y catálogos en tiempo real
                 let resEmp = await fetch(`${BACKEND_URL}/api/empresas`);
                 if (resEmp.ok) {
                     let empresasRemotas = await resEmp.json();
@@ -320,7 +389,6 @@
                     }
                 }
 
-                // 2. Sincronizar pedidos globales
                 let response = await fetch(`${BACKEND_URL}/api/pedidos`);
                 if (response.ok) {
                     let pedidosRemotos = await response.json();
@@ -339,9 +407,7 @@
                         }
                     }
                 }
-            } catch (e) {
-                // Sincronización offline por localStorage
-            }
+            } catch (e) {}
         }
 
         function inicializarDatosDemoSiEsNecesario() {
@@ -393,11 +459,13 @@
                     let usr = usuarios.find(u => String(u.telefono).trim() === tel && String(u.password || '').trim() === pass);
 
                     if (!usr && tel === "099123456" && pass === "1234") {
-                        usr = { nombre: "Cliente Demo Montevideo", telefono: "099123456", direccion: "Pocitos, Montevideo", password: "1234" };
+                        usr = { nombre: "Cliente Demo Montevideo", telefono: "099123456", email: "demo@lotengo.uy", direccion: "Pocitos, Montevideo", password: "1234", tarjetas: [{ id: 1, banco: "Itau", enmascarada: "•••• •••• •••• 4021" }] };
                         usuarios.push(usr);
                         localStorage.setItem('lt_base_usuarios', JSON.stringify(usuarios));
                     }
-                    if (!usr) { alert("❌ Credenciales incorrectas. Probá 099123456 / 1234"); return; }
+                    if (!usr) { showToast("Credenciales incorrectas. Probá 099123456 / 1234", "error"); return; }
+
+                    btnIng.innerHTML = `<span class="spinner"></span> Ingresando...`;
 
                     try {
                         await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
@@ -405,16 +473,17 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ rol: 'cliente', nombre: usr.nombre, identificador: usr.telefono })
                         });
-                    } catch(e) { console.warn("Backend offline"); }
+                    } catch(e) {}
 
                     localStorage.setItem('lt_sesion_activa', JSON.stringify(usr));
-                    location.reload();
+                    showToast("¡Sesión iniciada con éxito!");
+                    setTimeout(() => location.reload(), 800);
                 };
             }
         }
 
         async function loginConGoogle() {
-            let usuarioGoogle = { nombre: "Francisco Claudino", telefono: "099000000", direccion: "Montevideo", email: "francisco@lotengo.uy" };
+            let usuarioGoogle = { nombre: "Francisco Claudino", telefono: "099000000", email: "francisco@lotengo.uy", direccion: "Montevideo", tarjetas: [] };
             
             try {
                 await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
@@ -425,25 +494,26 @@
             } catch(e) {}
 
             localStorage.setItem('lt_sesion_activa', JSON.stringify(usuarioGoogle));
-            alert("✅ ¡Sesión iniciada con Google!");
-            location.reload();
+            showToast("¡Sesión iniciada con Google!");
+            setTimeout(() => location.reload(), 800);
         }
 
         async function completarRegistroCliente() {
             let nombre = document.getElementById('regNombre').value.trim();
             let telefono = document.getElementById('regTelefono').value.trim();
+            let email = document.getElementById('regEmail').value.trim();
             let direccion = document.getElementById('regDireccion').value.trim();
             let password = document.getElementById('regPassword').value.trim();
 
-            if (!nombre || !telefono || !password) { alert("⚠️ Completá los campos obligatorios."); return; }
+            if (!nombre || !telefono || !password) { showToast("Completá los campos obligatorios.", "error"); return; }
 
             let usuarios = JSON.parse(localStorage.getItem('lt_base_usuarios')) || [];
             if (usuarios.some(u => String(u.telefono).trim() === telefono)) {
-                alert("⚠️ Ya existe un usuario registrado con este número de WhatsApp.");
+                showToast("Ya existe un usuario registrado con este número.", "error");
                 return;
             }
 
-            let nuevoU = { nombre, telefono, direccion: direccion || 'Montevideo', password };
+            let nuevoU = { nombre, telefono, email: email || '', direccion: direccion || 'Montevideo', password, tarjetas: [] };
             usuarios.push(nuevoU);
             localStorage.setItem('lt_base_usuarios', JSON.stringify(usuarios));
 
@@ -456,8 +526,8 @@
             } catch(e) {}
 
             localStorage.setItem('lt_sesion_activa', JSON.stringify(nuevoU));
-            alert("✅ ¡Registro exitoso!");
-            location.reload();
+            showToast("¡Registro exitoso!");
+            setTimeout(() => location.reload(), 800);
         }
 
         function irLogin() {
@@ -574,7 +644,7 @@
                 <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:20px; font-size:13px; color:var(--text-muted); border: 1.5px solid var(--card-border);">
                     📍 <b>${emp.direccion}</b> | 📞 ${emp.telefono}
                 </div>
-                <h4 style="margin-bottom:12px; font-size:16px; font-weight:900;">Catálogo Disponible (Costo de envío: $90)</h4>
+                <h4 style="margin-bottom:12px; font-size:16px; font-weight:900;">Catálogo Disponible</h4>
                 ${prods}
             `;
         }
@@ -584,23 +654,22 @@
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
             let p = emp.productos.find(prod => Number(prod.id) === Number(productoId));
-            let totalBase = p.precio + 90;
+            let costoEnvioInicial = 190; // Moto base por defecto
+            let totalBase = p.precio + costoEnvioInicial;
 
             const container = document.getElementById('main-content');
             container.innerHTML = `
                 <button type="button" class="btn-volver-atras" onclick="verCatalogoComercio('${rut}')">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Catálogo
                 </button>
-                <div style="display:flex; align-items:center; gap:12px; margin-bottom:18px;">
-                    <h3 style="margin:0; font-size:18px; font-weight:900;">💳 Resumen y Pago</h3>
-                </div>
+                <h3 style="margin:0 0 16px 0; font-size:18px; font-weight:900;">💳 Resumen y Pago</h3>
 
-                <label>Dirección de Entrega (Editable):</label>
+                <label>Dirección de Entrega:</label>
                 <input type="text" id="dirEntregaFinal" value="${sesion.direccion || ''}" placeholder="Calle, número y barrio en Montevideo">
 
                 <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border); font-size:13px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>${p.nombre}:</span> <b>$${p.precio}</b></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:12px;"><span>Costo de envío:</span> <b>$90</b></div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:12px;"><span>Costo de envío total:</span> <b id="lblCostoEnvio">$${costoEnvioInicial}</b></div>
                     
                     <label style="font-size:12px; margin-bottom:6px; color:var(--primary);">🪙 Propina 100% para el cadete:</label>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
@@ -608,7 +677,7 @@
                         <button type="button" id="btn-prop-35" class="btn-propina-opcion activo" onclick="setPropina(35)">$35</button>
                         <button type="button" id="btn-prop-55" class="btn-propina-opcion" onclick="setPropina(55)">$55</button>
                     </div>
-                    <input type="number" id="inputPropina" value="35" min="0" step="5" oninput="actualizarTotal(${totalBase})" style="margin:0; padding:8px;">
+                    <input type="number" id="inputPropina" value="35" min="0" step="5" oninput="recalcularTotalPedido(${p.precio})" style="margin:0; padding:8px;">
 
                     <div style="display:flex; justify-content:space-between; margin-top:12px; border-top:1px solid var(--card-border); padding-top:8px; font-size:15px; font-weight:900; color:var(--success);">
                         <span>Total a Pagar:</span>
@@ -628,9 +697,10 @@
             document.getElementById('inputPropina').dispatchEvent(new Event('input'));
         }
 
-        function actualizarTotal(base) {
-            let p = Number(document.getElementById('inputPropina').value) || 0;
-            document.getElementById('lblTotal').innerText = `$${base + p}`;
+        function recalcularTotalPedido(precioProducto) {
+            let envio = 190;
+            let propina = Number(document.getElementById('inputPropina').value) || 0;
+            document.getElementById('lblTotal').innerText = `$${precioProducto + envio + propina}`;
         }
 
         async function confirmarPedidoCompra(rut, productoId) {
@@ -640,19 +710,25 @@
             let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
             let p = emp.productos.find(prod => Number(prod.id) === Number(productoId));
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
-            let total = p.precio + 90 + propina;
+            let valorEnvio = 190;
+            let total = p.precio + valorEnvio + propina;
 
             let nuevoPedido = {
                 id: Date.now(),
+                tipo: 'comercio',
                 cliente: sesion.nombre || 'Cliente Montevideo',
                 telefonoCliente: sesion.telefono || '099000000',
                 rutComercio: emp.rut,
+                origen: emp.direccion,
                 direccion: dir,
+                valorProducto: p.precio,
+                valorEnvio: valorEnvio,
+                propina: propina,
                 total: total,
                 estado: 'Recibido',
                 items: [
                     { nombre: p.nombre, precio: p.precio, cantidad: 1 },
-                    { nombre: 'Costo de Envío', precio: 90, cantidad: 1 },
+                    { nombre: 'Costo de Envío', precio: valorEnvio, cantidad: 1 },
                     ...(propina > 0 ? [{ nombre: 'Propina Cadete', precio: propina, cantidad: 1 }] : [])
                 ],
                 codigoVerificacion: Math.floor(1000 + Math.random() * 9000).toString()
@@ -669,19 +745,18 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(nuevoPedido)
                 });
-            } catch (e) {
-                console.warn("No se pudo conectar con Render, respaldado localmente.", e);
-            }
+            } catch (e) {}
 
-            alert(`✅ ¡Pedido confirmado por $${total}!\n🔑 PIN de seguridad: [ ${nuevoPedido.codigoVerificacion} ]`);
+            showToast(`¡Pedido confirmado! PIN: ${nuevoPedido.codigoVerificacion}`);
             mostrarPedidosActivos();
         }
 
         // ==========================================
-        // MÓDULO DE CADETERÍA EXPRESS
+        // MÓDULO DE CADETERÍA EXPRESS CON RETORNO A ORIGEN Y DIRECCIONES LITERALES (PUNTO A Y B)
         // ==========================================
         let tipoVehiculoCadete = 'moto';
         let contadorDestinosCadete = 1;
+        let retornoOrigenActivo = false;
 
         function mostrarFormularioCadeteria() {
             actualizarMenuActivo(2);
@@ -690,31 +765,35 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
                 </button>
                 <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">🛵 Cadetería Express</h3>
-                <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Punto A a B con múltiples paradas y mapa en Montevideo.</p>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Punto A a B con tarifas dinámicas y retorno a origen.</p>
 
                 <label>Seleccionar Vehículo:</label>
                 <div class="vehiculo-selector-grid">
                     <div id="card-moto" class="vehiculo-card-opcion seleccionado" onclick="setVehiculoCadete('moto')">
                         <div style="font-size:26px; margin-bottom:4px;">🏍️</div>
                         <div style="font-size:14px; font-weight:900;">Moto</div>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $290</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $190 (5km)</div>
                     </div>
                     <div id="card-camioneta" class="vehiculo-card-opcion" onclick="setVehiculoCadete('camioneta')">
                         <div style="font-size:26px; margin-bottom:4px;">🚐</div>
                         <div style="font-size:14px; font-weight:900;">Camioneta</div>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $550</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $390 (8km)</div>
                     </div>
                 </div>
 
-                <label>Origen (Retiro):</label>
+                <label>Origen (Punto A - Retiro):</label>
                 <input type="text" id="cadOrigen" placeholder="Ej: Av. 18 de Julio 1200" oninput="actualizarCalculoCadeteria()">
 
                 <div id="contenedor-destinos-cadete">
-                    <label>Destino 1 (Entrega):</label>
+                    <label>Destino (Punto B - Entrega):</label>
                     <input type="text" class="input-destino-cadete" placeholder="Ej: Bv. General Artigas 2500" oninput="actualizarCalculoCadeteria()">
                 </div>
 
-                <button type="button" onclick="agregarDestinoCadete()" style="background:#4B5563; font-size:13px; padding:10px; margin-bottom:14px; box-shadow:none;">➕ Agregar otra parada</button>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 800; color: var(--text-main);">
+                        <input type="checkbox" id="checkRetorno" onchange="toggleRetornoOrigen()" style="width: auto; margin: 0;"> 🔄 Envío con Retorno a Origen (Punto A → Destino → Punto A)
+                    </label>
+                </div>
 
                 <label>Descripción detallada de la carga:</label>
                 <textarea id="cadDescripcion" rows="2" placeholder="Ej: Paquete frágil / Documentación..."></textarea>
@@ -729,13 +808,8 @@
                     <input type="number" id="inputPropinaCadete" value="35" min="0" step="5" oninput="actualizarCalculoCadeteria()" style="margin:0; padding:8px;">
                 </div>
 
-                <label>Vista del Recorrido Vial en Mapa:</label>
-                <div style="height: 160px; background: #E5E7EB; border-radius: var(--radius-md); overflow: hidden; margin-bottom: 14px; border: 1.5px solid var(--card-border);">
-                    <iframe id="iframeMapaCadete" src="https://maps.google.com/maps?q=Montevideo,Uruguay&t=&z=13&ie=UTF8&iwloc=&output=embed" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
-                </div>
-
                 <div id="panel-tarifa-cadete" style="background:#F9FAFB; border:1.5px solid var(--card-border); border-radius:var(--radius-md); padding:14px; margin-bottom:16px; font-size:13px;">
-                    📍 Ingresá origen y destino para calcular la ruta vial.
+                    📍 Ingresá origen y destino para calcular el total del envío.
                 </div>
 
                 <button type="button" onclick="solicitarCadeteriaExpressFinal()" style="background:var(--success); font-weight:800;">Solicitar Envío</button>
@@ -750,6 +824,11 @@
             actualizarCalculoCadeteria();
         }
 
+        function toggleRetornoOrigen() {
+            retornoOrigenActivo = document.getElementById('checkRetorno').checked;
+            actualizarCalculoCadeteria();
+        }
+
         function setPropinaCadete(m) {
             document.getElementById('inputPropinaCadete').value = m;
             document.querySelectorAll('[id^="btn-prop-cad-"]').forEach(btn => btn.classList.remove('activo'));
@@ -758,47 +837,28 @@
             actualizarCalculoCadeteria();
         }
 
-        function agregarDestinoCadete() {
-            contadorDestinosCadete++;
-            const contenedor = document.getElementById('contenedor-destinos-cadete');
-            const div = document.createElement('div');
-            div.style.marginTop = "10px";
-            div.innerHTML = `
-                <label>Destino ${contadorDestinosCadete} (Entrega):</label>
-                <input type="text" class="input-destino-cadete" placeholder="Calle y número de destino" oninput="actualizarCalculoCadeteria()">
-            `;
-            contenedor.appendChild(div);
-        }
-
         function actualizarCalculoCadeteria() {
             let origen = document.getElementById('cadOrigen').value.trim();
             let inputsDestino = document.querySelectorAll('.input-destino-cadete');
-            let destinosValidos = Array.from(inputsDestino).filter(i => i.value.trim().length > 2);
+            let destinoValido = inputsDestino.length > 0 ? inputsDestino[0].value.trim() : '';
             let panel = document.getElementById('panel-tarifa-cadete');
-            let iframe = document.getElementById('iframeMapaCadete');
             let propina = Number(document.getElementById('inputPropinaCadete').value) || 0;
 
-            if (!origen || destinosValidos.length === 0) {
-                if(panel) panel.innerHTML = `📍 Completá origen y al menos un destino para ver la tarifa y la ruta.`;
+            if (!origen || !destinoValido) {
+                if(panel) panel.innerHTML = `📍 Completá origen y destino para calcular la tarifa total.`;
                 return;
             }
 
-            let ultimoDestino = destinosValidos[destinosValidos.length - 1].value.trim();
-            if(iframe) {
-                let query = encodeURIComponent(`${origen}, Montevideo to ${ultimoDestino}, Montevideo`);
-                iframe.src = `https://maps.google.com/maps?q=${query}&t=&z=13&ie=UTF8&iwloc=&output=embed`;
-            }
-
-            let tarifaBase = tipoVehiculoCadete === 'moto' ? 290 : 550;
-            let extraParadas = (destinosValidos.length - 1) * 90;
-            let tarifaServicio = tarifaBase + extraParadas;
-            let tarifaTotalFinal = tarifaServicio + propina;
+            let costoBaseEnvio = tipoVehiculoCadete === 'moto' ? 190 : 390;
+            if (retornoOrigenActivo) costoBaseEnvio *= 1.4;
+            let costoTotalEnvio = Math.round(costoBaseEnvio);
+            let tarifaTotalFinal = costoTotalEnvio + propina;
 
             if(panel) {
                 panel.innerHTML = `
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <span>Servicio (${tipoVehiculoCadete} + ${destinosValidos.length} parada/s):</span>
-                        <b>$${tarifaServicio}</b>
+                        <span>Costo Total del Envío (${tipoVehiculoCadete}${retornoOrigenActivo ? ' con retorno' : ''}):</span>
+                        <b>$${costoTotalEnvio}</b>
                     </div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
                         <span>Propina cadete:</span>
@@ -813,40 +873,49 @@
         }
 
         async function solicitarCadeteriaExpressFinal() {
-            let origen = document.getElementById('cadOrigen').value.trim();
+            let origenPuntoA = document.getElementById('cadOrigen').value.trim();
             let inputsDestino = document.querySelectorAll('.input-destino-cadete');
-            let destinosValidos = Array.from(inputsDestino).filter(i => i.value.trim().length > 2);
+            let destinoPuntoB = inputsDestino.length > 0 ? inputsDestino[0].value.trim() : '';
             let desc = document.getElementById('cadDescripcion').value.trim();
             let propina = Number(document.getElementById('inputPropinaCadete').value) || 0;
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
 
-            if (!origen || destinosValidos.length === 0 || !desc) {
-                alert("⚠️ Completá origen, al menos un destino y la descripción detallada de la carga.");
+            if (!origenPuntoA || !destinoPuntoB || !desc) {
+                showToast("Completá la dirección de Origen (Punto A), Destino (Punto B) y la descripción.", "error");
                 return;
             }
 
-            let tarifaBase = tipoVehiculoCadete === 'moto' ? 290 : 550;
-            let subtotalServicio = tarifaBase + ((destinosValidos.length - 1) * 90);
-            let totalFinal = subtotalServicio + propina;
-            let primerDestino = destinosValidos[0].value.trim();
+            let costoEnvio = tipoVehiculoCadete === 'moto' ? 190 : 390;
+            if (retornoOrigenActivo) costoEnvio = Math.round(costoEnvio * 1.4);
+            let totalFinal = costoEnvio + propina;
+
+            let hojaDeRuta = `Origen (Punto A): [${origenPuntoA}] ➔ Destino (Punto B): [${destinoPuntoB}]`;
+            if (retornoOrigenActivo) {
+                hojaDeRuta += ` ➔ Retorno a Origen: [${origenPuntoA}]`;
+            }
 
             let nuevoPedido = {
                 id: Date.now(),
+                tipo: 'cadeteria',
                 cliente: sesion.nombre || 'Cliente Montevideo',
                 telefonoCliente: sesion.telefono || '099000000',
-                direccion: primerDestino,
+                origen: origenPuntoA,
+                direccion: destinoPuntoB,
+                retornoOrigen: retornoOrigenActivo,
+                valorEnvio: costoEnvio,
+                propina: propina,
                 total: totalFinal,
                 estado: 'Recibido',
-                descripcion: `Cadetería (${tipoVehiculoCadete}) desde [${origen}] con ${destinosValidos.length} destino(s) - ${desc}`,
+                descripcion: `Cadetería (${tipoVehiculoCadete.toUpperCase()}) | ${hojaDeRuta} | Detalle: ${desc}`,
                 items: [
-                    { nombre: `Envío Express (${tipoVehiculoCadete})`, precio: subtotalServicio, cantidad: 1 },
+                    { nombre: `Envío Express (${tipoVehiculoCadete})`, precio: costoEnvio, cantidad: 1 },
                     ...(propina > 0 ? [{ nombre: 'Propina Cadete', precio: propina, cantidad: 1 }] : [])
                 ],
                 codigoVerificacion: Math.floor(1000 + Math.random() * 9000).toString()
             };
 
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            if (base.length === 0) { alert("⚠️ Configurar central primero."); return; }
+            if (base.length === 0) { showToast("Error de central.", "error"); return; }
             if (!base[0].pedidos) base[0].pedidos = [];
             base[0].pedidos.push(nuevoPedido);
             
@@ -859,16 +928,24 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(nuevoPedido)
                 });
-            } catch (e) {
-                console.warn("No se pudo conectar con Render, respaldado localmente.", e);
-            }
+            } catch (e) {}
 
-            alert(`✅ ¡Envío express solicitado por $${totalFinal}!\n🔑 PIN de seguridad obligatorio: [ ${nuevoPedido.codigoVerificacion} ]`);
+            showToast(`¡Envío solicitado por $${totalFinal}! PIN: ${nuevoPedido.codigoVerificacion}`);
             mostrarPedidosActivos();
         }
 
+        // ==========================================
+        // PANEL DE PEDIDOS CON PESTAÑAS Y COMPARTIR RECORRIDO
+        // ==========================================
+        let pestañaPedidosActual = 'activos';
+
         function mostrarPedidosActivos() {
             actualizarMenuActivo(3);
+            renderizarListaPedidos();
+        }
+
+        function cambiarPestañaPedidos(pestania) {
+            pestañaPedidosActual = pestania;
             renderizarListaPedidos();
         }
 
@@ -888,7 +965,13 @@
 
             misPedidos.sort((a, b) => b.id - a.id);
 
-            let html = misPedidos.map(p => {
+            let pedidosFiltrados = misPedidos.filter(p => {
+                let st = (p.estado || 'Recibido').toLowerCase();
+                let esFinalizado = st.includes('entregado') || st.includes('cancelado') || st.includes('cerrado');
+                return pestañaPedidosActual === 'activos' ? !esFinalizado : esFinalizado;
+            });
+
+            let html = pedidosFiltrados.map(p => {
                 let st = (p.estado || 'Recibido').toLowerCase();
                 let claseBadge = 'estado-recibido';
                 let textoEstado = p.estado;
@@ -903,39 +986,21 @@
                 let esCerrado = st.includes('entregado') || st.includes('cerrado');
                 let seccionCalificacion = '';
 
-                if (esCerrado) {
-                    if (!p.calificadoCliente) {
-                        seccionCalificacion = `
-                            <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:14px; border-radius:var(--radius-md); margin-top:12px; text-align:center;">
-                                <span style="font-size:13px; font-weight:800; color:#15803D; display:block; margin-bottom:8px;">😊 ¿Cómo estuvo tu experiencia?</span>
-                                <div style="display:flex; justify-content:center; gap:8px;">
-                                    <button type="button" onclick="calificarPedido('${p.id}', 1)" style="width:auto; padding:8px 10px; font-size:16px; background:#EF4444; box-shadow:none;" title="Pésimo">😠</button>
-                                    <button type="button" onclick="calificarPedido('${p.id}', 3)" style="width:auto; padding:8px 10px; font-size:16px; background:#F59E0B; box-shadow:none;" title="Regular">😐</button>
-                                    <button type="button" onclick="calificarPedido('${p.id}', 4)" style="width:auto; padding:8px 10px; font-size:16px; background:#10B981; box-shadow:none;" title="Bueno">😊</button>
-                                    <button type="button" onclick="calificarPedido('${p.id}', 5)" style="width:auto; padding:8px 10px; font-size:16px; background:#059669; box-shadow:none;" title="Excelente">🔥</button>
-                                </div>
+                if (esCerrado && !p.calificadoCliente) {
+                    seccionCalificacion = `
+                        <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:14px; border-radius:var(--radius-md); margin-top:12px; text-align:center;">
+                            <span style="font-size:13px; font-weight:800; color:#15803D; display:block; margin-bottom:8px;">😊 ¿Cómo estuvo tu experiencia?</span>
+                            <div style="display:flex; justify-content:center; gap:8px;">
+                                <button type="button" onclick="calificarPedido('${p.id}', 5)" style="width:auto; padding:8px 12px; font-size:14px; background:#059669; box-shadow:none;">🌟 Excelente</button>
                             </div>
-                        `;
-                    } else {
-                        seccionCalificacion = `<p style="text-align:center; font-size:12px; color:var(--success); font-weight:bold; margin-top:8px;">⭐ ¡Gracias por calificar tu experiencia!</p>`;
-                    }
+                        </div>
+                    `;
                 }
 
-                // 🗺️ SECCIÓN DE MAPA DE SEGUIMIENTO EN VIVO (Estilo PedidosYa)
-                let seccionMapaEnVivo = '';
-                if (st.includes('camino') || st.includes('ruta')) {
-                    let destinoQuery = encodeURIComponent(p.direccion + ", Montevideo");
-                    seccionMapaEnVivo = `
-                        <div style="background:#EFF6FF; border:1.5px solid #BFDBFE; padding:12px; border-radius:var(--radius-md); margin-top:12px;">
-                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
-                                <span style="font-size:13px; font-weight:900; color:#1E40AF;">🛰️ Seguimiento de Envío en Vivo</span>
-                                <span style="font-size:10px; background:#DBEAFE; color:#1D4ED8; padding:2px 6px; border-radius:4px; font-weight:bold;">EN RUTA</span>
-                            </div>
-                            <div style="height:150px; border-radius:8px; overflow:hidden; border:1px solid #93C5FD;">
-                                <iframe src="https://maps.google.com/maps?q=${destinoQuery}&t=&z=15&ie=UTF8&iwloc=&output=embed" style="width:100%; height:100%; border:0;" allowfullscreen></iframe>
-                            </div>
-                            <p style="margin:8px 0 0 0; font-size:11px; color:#1E40AF; text-align:center; font-weight:700;">🛵 El cadete se dirige a tu dirección. ¡Tené a mano tu PIN!</p>
-                        </div>
+                let seccionCompartir = '';
+                if (!esCerrado) {
+                    seccionCompartir = `
+                        <button type="button" onclick="compartirRecorridoPedido('${p.id}')" style="background:#0284C7; font-size:12px; padding:10px; margin-top:10px; box-shadow:none;">🔗 Compartir Recorrido en Vivo</button>
                     `;
                 }
 
@@ -945,14 +1010,14 @@
                             <strong style="color:var(--text-main); font-size:14px; font-weight:900;">Pedido #${p.id.toString().slice(-4)}</strong>
                             <span class="badge-estado ${claseBadge}">${textoEstado}</span>
                         </div>
-                        <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">🏪 Local/Servicio: <b>${p.empresaNombre}</b></p>
+                        <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">🏪 Origen/Local: <b>${p.empresaNombre}</b></p>
                         <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📍 ${p.descripcion ? '<b>' + p.descripcion + '</b>' : 'Destino: <b>' + p.direccion + '</b>'}</p>
                         <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📦 ${itemsTexto}</p>
                         <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">💳 Total: <b>$${p.total}</b></p>
                         
-                        ${seccionMapaEnVivo}
+                        ${seccionCompartir}
 
-                        ${!esCerrado ? `
+                        {!esCerrado ? `
                             <div style="background:#FFF7ED; padding:12px; border-radius:var(--radius-md); text-align:center; margin-top:12px; border: 1.5px solid #FDBA74;">
                                 <span style="font-size:12px; color:#C2410C; font-weight:700;">🔑 PIN de seguridad para entregar al cadete:</span>
                                 <div style="font-size:22px; font-weight:900; color:#C2410C; letter-spacing:2px; margin-top:4px;">${p.codigoVerificacion}</div>
@@ -962,7 +1027,7 @@
                         ${seccionCalificacion}
                     </div>
                 `;
-            }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">No tenés pedidos activos.</p>';
+            }).join('') || `<p style="text-align:center; color:var(--text-muted); margin-top:40px;">No hay pedidos en esta sección.</p>`;
 
             if(container) {
                 container.innerHTML = `
@@ -970,8 +1035,24 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
                     </button>
                     <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">📦 Mis Pedidos y Seguimiento</h3>
+                    
+                    <div class="pestañas-pedidos">
+                        <button type="button" class="tab-btn ${pestañaPedidosActual === 'activos' ? 'activo' : ''}" onclick="cambiarPestañaPedidos('activos')">Activos</button>
+                        <button type="button" class="tab-btn ${pestañaPedidosActual === 'finalizados' ? 'activo' : ''}" onclick="cambiarPestañaPedidos('finalizados')">Finalizados</button>
+                    </div>
+
                     <div id="contenedor-cards-pedidos">${html}</div>
                 `;
+            }
+        }
+
+        function compartirRecorridoPedido(id) {
+            let urlCompartir = `https://lotengo.uy/seguimiento?pedido=${id}`;
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(urlCompartir);
+                showToast("¡Enlace de seguimiento copiado al portapapeles!");
+            } else {
+                prompt("Copiá el link de seguimiento:", urlCompartir);
             }
         }
 
@@ -989,16 +1070,92 @@
             });
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
             window.dispatchEvent(new Event('storage'));
-
-            fetch(`${BACKEND_URL}/api/pedidos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: idPedido, calificadoCliente: true, estrellasCliente: valor })
-            }).catch(e => console.warn("Modo offline en calificación", e));
-
-            alert(`😊 ¡Gracias por tu calificación!`);
+            showToast("¡Gracias por tu calificación!");
             renderizarListaPedidos();
         };
+
+        // ==========================================
+        // MÓDULO "MI PERFIL"
+        // ==========================================
+        function mostrarMiPerfil() {
+            actualizarMenuActivo(4);
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
+            const container = document.getElementById('main-content');
+
+            let tarjetasHtml = (sesion.tarjetas || []).map(t => `
+                <div style="background:#F9FAFB; padding:10px 14px; border-radius:8px; border:1.5px solid var(--card-border); margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; font-size:13px;">
+                    <span>💳 <b>${t.banco}</b> (${t.enmascarada})</span>
+                </div>
+            `).join('') || '<p style="font-size:12px; color:var(--text-muted);">No hay tarjetas asociadas.</p>';
+
+            container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
+                </button>
+                <div style="text-align:center; margin-bottom:20px;">
+                    <div style="width:70px; height:70px; background:var(--primary-gradient); color:#FFF; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; font-weight:900; margin:0 auto 10px auto;">${(sesion.nombre || 'U')[0]}</div>
+                    <h3 style="margin:0; font-size:18px; font-weight:900;">${sesion.nombre || 'Usuario'}</h3>
+                    <p style="margin:4px 0 0 0; font-size:12px; color:var(--text-muted);">${sesion.telefono || 'Sin teléfono'}</p>
+                </div>
+
+                <label>Nombre Completo:</label>
+                <input type="text" id="perfilNombre" value="${sesion.nombre || ''}">
+
+                <label>Correo Electrónico:</label>
+                <input type="email" id="perfilEmail" value="${sesion.email || ''}">
+
+                <label>Dirección:</label>
+                <input type="text" id="perfilDireccion" value="${sesion.direccion || ''}">
+
+                <label>Nueva Contraseña (Opcional):</label>
+                <input type="password" id="perfilPassword" placeholder="Dejar en blanco para mantener actual">
+
+                <h4 style="margin:16px 0 8px 0; font-size:15px; font-weight:900;">Tarjetas Seguras Asociadas</h4>
+                ${tarjetasHtml}
+                <button type="button" onclick="agregarTarjetaPerfil()" style="background:#4B5563; font-size:12px; padding:10px; margin-bottom:16px; box-shadow:none;">➕ Agregar Tarjeta</button>
+
+                <button type="button" onclick="guardarPerfilCliente()" style="background:var(--success); font-weight:800; margin-bottom:10px;">Guardar Cambios</button>
+                <button type="button" onclick="cerrarSesionUniversal()" style="background:#EF4444; font-weight:800;">Cerrar Sesión</button>
+            `;
+        }
+
+        function agregarTarjetaPerfil() {
+            let banco = prompt("Ingresá el banco emisor (Ej: Itau, BROU, Santander):");
+            let numero = prompt("Ingresá los 16 números de tu tarjeta:");
+            if (!banco || !numero || numero.length < 4) { showToast("Datos de tarjeta inválidos.", "error"); return; }
+            
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
+            if (!sesion.tarjetas) sesion.tarjetas = [];
+            
+            let ultimos4 = numero.slice(-4);
+            sesion.tarjetas.push({ id: Date.now(), banco, enmascarada: `•••• •••• •••• ${ultimos4}` });
+            localStorage.setItem('lt_sesion_activa', JSON.stringify(sesion));
+            showToast("¡Tarjeta agregada de forma segura!");
+            mostrarMiPerfil();
+        }
+
+        function guardarPerfilCliente() {
+            let nombre = document.getElementById('perfilNombre').value.trim();
+            let email = document.getElementById('perfilEmail').value.trim();
+            let direccion = document.getElementById('perfilDireccion').value.trim();
+            let pass = document.getElementById('perfilPassword').value.trim();
+
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
+            sesion.nombre = nombre;
+            sesion.email = email;
+            sesion.direccion = direccion;
+            if (pass) sesion.password = pass;
+
+            localStorage.setItem('lt_sesion_activa', JSON.stringify(sesion));
+            showToast("¡Perfil actualizado con éxito!");
+            mostrarMiPerfil();
+        }
+
+        function cerrarSesionUniversal() {
+            localStorage.removeItem('lt_sesion_activa');
+            showToast("Sesión cerrada correctamente.");
+            setTimeout(() => location.reload(), 800);
+        }
 
         function actualizarMenuActivo(index) {
             document.querySelectorAll('.bottom-nav .nav-item').forEach((btn, idx) => {

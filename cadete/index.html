@@ -11,7 +11,6 @@
             --success: #28a745;
             --warning: #ffc107;
             --danger: #DC2626;
-            --mp-blue: #009ee3;
             --bg-light: #f8f9fa;
             --border: #e5e7eb;
             --radius: 14px;
@@ -366,21 +365,20 @@
 
         <!-- Barra de Navegación Inferior -->
         <div class="bottom-nav" id="bottom-nav-cadete" style="display: none;">
-            <button class="nav-item active" onclick="mostrarDisponiblesCadete()"><span>📦</span>Disponibles <span id="badge-cadete-disponibles" style="background:var(--secondary); color:white; border-radius:50%; padding:1px 4px; font-size:8px; display:inline-block; vertical-align:top; margin-left:1px;">0</span></button>
-            <button class="nav-item" onclick="mostrarEnCursoCadete()"><span>🛵</span>En Curso</button>
+            <button class="nav-item active" onclick="mostrarDisponiblesCadete()"><span>📦</span>Bolsa <span id="badge-cadete-disponibles" style="background:var(--secondary); color:white; border-radius:50%; padding:1px 4px; font-size:8px; display:inline-block; vertical-align:top; margin-left:1px;">0</span></button>
+            <button class="nav-item" onclick="mostrarEnCursoCadete()"><span>🛵</span>Mi Ruta</button>
             <button class="nav-item" onclick="mostrarHistorialCadete()"><span>💰</span>Historial</button>
             <button class="nav-item" onclick="cerrarSesionCadete()"><span>🚪</span>Salir</button>
         </div>
     </div>
 
-    <!-- Script Sincronizado y Robusto para Cadetes -->
+    <!-- Script Sincronizado, Robusto y con Lote / Bloqueo de Ruta -->
     <script>
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
         let ultimoConteoPedidosCadete = 0;
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Ocultar Splash Screen después de 1.5 segundos
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
@@ -437,9 +435,7 @@
                         }
                     }
                 }
-            } catch (e) {
-                // Modo offline respaldado por localStorage
-            }
+            } catch (e) {}
         }
 
         function reproducirAlertaVoz(mensaje) {
@@ -452,9 +448,7 @@
                     utterance.pitch = 1.0;
                     window.speechSynthesis.speak(utterance);
                 }
-            } catch (err) {
-                console.error("Error voz:", err);
-            }
+            } catch (err) {}
         }
 
         function mostrarBurbujaEmergente(titulo, texto) {
@@ -484,7 +478,7 @@
                     document.getElementById('bottom-nav-cadete').style.display = 'flex';
                     revisarNuevosPedidosCadete(false);
                     mostrarDisponiblesCadete();
-                } catch (e) { console.error(e); }
+                } catch (e) {}
             }
         }
 
@@ -505,7 +499,7 @@
                     let base = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
                     
                     if (base.length === 0) {
-                        base = [{ ci: '12345678', nombre: 'Cadete Demo Montevideo', telefono: '099111222', vehiculo: 'Moto', password: '123', entregas: [] }];
+                        base = [{ ci: '12345678', nombre: 'Carlos Repartidor', telefono: '099111222', vehiculo: 'Moto', password: '123', entregas: [] }];
                         localStorage.setItem('lt_base_cadetes', JSON.stringify(base));
                     }
 
@@ -545,7 +539,7 @@
             if (!nombre || !ci || !password) { alert("⚠️ Completá los campos obligatorios."); return; }
 
             let base = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
-            if (base.some(c => String(c.ci).trim() === ci)) { alert("⚠️ Ya existe un cadete registrado con esta CI."); return; }
+            if (base.some(c => String(c.ci).trim() === ci)) { alert("⚠️ Ya existe un cadete con esta CI."); return; }
 
             let nuevoCadete = { ci, nombre, telefono, vehiculo, password, entregas: [] };
             base.push(nuevoCadete);
@@ -560,7 +554,6 @@
             } catch(e) {}
 
             localStorage.setItem('lt_sesion_cadete', JSON.stringify(nuevoCadete));
-
             alert("✅ ¡Registro de cadete exitoso!");
             location.reload();
         }
@@ -578,7 +571,7 @@
             if (cadete) {
                 alert(`✅ Tu contraseña actual es: ${cadete.password}`);
             } else {
-                alert("✅ Si la cédula existe en el sistema, se han enviado las instrucciones.");
+                alert("✅ Si la cédula existe, se enviaron las instrucciones.");
             }
             irLoginCadete();
         }
@@ -658,151 +651,163 @@
 
             if (disponibles.length > ultimoConteoPedidosCadete && activarAlertaSonora) {
                 reproducirAlertaVoz("Lo tengo");
-                mostrarBurbujaEmergente("📦 ¡Nuevo Pedido Disponible!", "Un nuevo envío o servicio de cadetería fue creado en Montevideo.");
+                mostrarBurbujaEmergente("📦 ¡Nuevo Pedido Disponible!", "Un nuevo envío o servicio de cadetería fue liberado en Montevideo.");
             }
             ultimoConteoPedidosCadete = disponibles.length;
         }
 
+        // ==========================================
+        // BOLSA DE ENVIOS, ESCANEO QR Y BLOQUEO DE RUTA
+        // ==========================================
         function mostrarDisponiblesCadete() {
             actualizarMenuActivoCadete(0);
+            const container = document.getElementById('main-content-cadete');
+            let rutaActiva = JSON.parse(localStorage.getItem('lt_ruta_cadete_activa')) || false;
+
+            if (rutaActiva) {
+                container.innerHTML = `
+                    <div style="text-align:center; padding:40px 20px;">
+                        <div style="font-size:48px; margin-bottom:12px;">🔒</div>
+                        <h3 style="font-weight:900; color:var(--primary); margin-bottom:8px;">Ruta en Curso (Bloqueada)</h3>
+                        <p style="font-size:13px; color:#666; margin-bottom:20px;">Tenés una ruta activa en curso. Por normativas de LO TENGO, no podés escanear ni cargar más pedidos hasta finalizar todas las paradas pendientes.</p>
+                        <button type="button" onclick="mostrarEnCursoCadete()" style="background:var(--secondary);">Ver Mi Ruta Activa 🗺️</button>
+                    </div>
+                `;
+                return;
+            }
+
             let disponibles = obtenerPedidosDisponiblesGlobales();
             disponibles.sort((a, b) => b.id - a.id);
+            let loteSeleccionado = JSON.parse(localStorage.getItem('lt_lote_cadete_actual')) || [];
 
-            const container = document.getElementById('main-content-cadete');
-            let htmlDisponibles = disponibles.map(p => `
-                <div style="background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--secondary); border-radius: var(--radius); padding: 15px; margin-bottom: 15px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <strong style="color: var(--secondary); font-size: 16px;">📦 Pedido #${p.id.toString().slice(-4)}</strong>
-                        <div>
+            let htmlDisponibles = disponibles.map(p => {
+                let enLote = loteSeleccionado.some(l => String(l.id).trim() === String(p.id).trim());
+                return `
+                    <div style="background: #fff; border: 1px solid var(--border); border-left: 4px solid ${enLote ? 'var(--success)' : 'var(--secondary)'}; border-radius: var(--radius); padding: 15px; margin-bottom: 15px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong style="color: var(--secondary); font-size: 16px;">📦 Pedido #${p.id.toString().slice(-4)}</strong>
                             <span style="font-size: 12px; font-weight:bold; color:var(--success);">$${p.total}</span>
                         </div>
-                    </div>
-                    <p style="margin: 6px 0 2px 0; font-size: 13px;">🏪 <b>Origen:</b> ${p.comercio}</p>
-                    <p style="margin: 2px 0; font-size: 13px; color:#555;">📍 <b>Retiro:</b> ${p.direccionComercio}</p>
-                    <hr style="border:0; border-top:1px dashed #eee; margin:8px 0;">
-                    <p style="margin: 2px 0; font-size: 13px;">👤 <b>Cliente:</b> ${p.cliente}</p>
-                    <p style="margin: 2px 0 10px 0; font-size: 13px; color:#555;">📍 <b>Destino:</b> ${p.direccionCliente}</p>
+                        <p style="margin: 6px 0 2px 0; font-size: 13px;">🏪 <b>Origen:</b> ${p.comercio} (${p.direccionComercio})</p>
+                        <p style="margin: 2px 0 10px 0; font-size: 13px; color:#555;">📍 <b>Destino:</b> ${p.direccionCliente} (${p.cliente})</p>
 
-                    <button type="button" onclick="tomarPedidoCadete('${p.id}')" style="background: var(--success); margin-top: 5px;">🚀 Aceptar y Tomar Pedido</button>
+                        ${enLote ? `
+                            <button type="button" onclick="quitarDelLote('${p.id}')" style="background:var(--danger); margin-top:5px; padding:10px; font-size:12px;">✕ Quitar del Lote</button>
+                        ` : `
+                            <button type="button" onclick="agregarAlLote('${p.id}')" style="background:var(--success); margin-top:5px; padding:10px; font-size:12px;">+ Agregar al Lote (Multi-envío)</button>
+                        `}
+                    </div>
+                `;
+            }).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos disponibles para levantar en este momento.</p>';
+
+            let htmlResumenLote = loteSeleccionado.length > 0 ? `
+                <div style="background:#ECFDF5; border:1.5px solid #A7F3D0; padding:15px; border-radius:var(--radius); margin-bottom:15px; text-align:center;">
+                    <h4 style="margin:0 0 4px 0; color:#065F46; font-size:15px;">📦 Lote Seleccionado (${loteSeleccionado.length} envíos)</h4>
+                    <p style="margin:0 0 10px 0; font-size:12px; color:#047857;">El sistema ordenará tu ruta automáticamente.</p>
+                    <button type="button" onclick="iniciarRutaOptimizada()" style="background:var(--success);">🚀 Iniciar Ruta (Bloquear Lote)</button>
                 </div>
-            `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos disponibles para retirar en este momento.</p>';
+            ` : '';
 
             container.innerHTML = `
                 <div id="bandera-vista-disponibles"></div>
                 <div class="section-title">
-                    <span>📦 Pedidos Disponibles (Montevideo)</span>
+                    <span>⚡ Bolsa de Envíos y Lotes</span>
                     <button type="button" onclick="mostrarDisponiblesCadete()" style="width:auto; padding:6px 10px; font-size:11px; background:var(--primary);">Actualizar 🔄</button>
                 </div>
+                
+                <button type="button" onclick="escanearQRPedido()" style="background:var(--secondary); margin-bottom:15px; display:flex; align-items:center; justify-content:center; gap:6px;">
+                    📷 Escanear Código QR de Paquete
+                </button>
+
+                ${htmlResumenLote}
                 ${htmlDisponibles}
             `;
         }
 
-        window.tomarPedidoCadete = async function(idPedido) {
-            let sesion = obtenerCadeteActualizado();
-            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
-            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            
-            let encontradoEnSistema = false;
-
-            baseEmpresas.forEach(emp => {
-                if (emp.pedidos) {
-                    emp.pedidos.forEach(p => {
-                        if (String(p.id).trim() === String(idPedido).trim()) {
-                            p.estado = 'En camino a retirar';
-                            p.cadeteAsignado = sesion.nombre;
-                            p.ciCadete = sesion.ci;
-                            encontradoEnSistema = true;
-
-                            fetch(`${BACKEND_URL}/api/pedidos`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(p)
-                            }).catch(err => console.warn("Modo offline en tomar pedido", err));
-                        }
-                    });
-                }
-            });
-            if (encontradoEnSistema) {
-                localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
-            }
+        function escanearQRPedido() {
+            let codigoQr = prompt("Simulador de Escáner QR - Ingresá o escaneá el código del paquete (ej: PEDIDO:#1234):");
+            if (!codigoQr) return;
 
             let disponibles = obtenerPedidosDisponiblesGlobales();
-            let itemACopiar = disponibles.find(p => String(p.id).trim() === String(idPedido).trim());
-            if (itemACopiar) {
-                itemACopiar.estado = 'En camino a retirar';
-                itemACopiar.cadeteAsignado = sesion.nombre;
-                itemACopiar.ciCadete = sesion.ci;
-                
-                let pIndex = pedidosCadete.findIndex(p => String(p.id).trim() === String(idPedido).trim());
-                if (pIndex !== -1) {
-                    pedidosCadete[pIndex] = itemACopiar;
-                } else {
-                    pedidosCadete.push(itemACopiar);
-                }
+            let match = disponibles.find(p => codigoQr.includes(String(p.id)));
+
+            if (match) {
+                agregarAlLote(match.id);
+                alert(`✅ ¡Paquete #${match.id} escaneado y agregado al lote con éxito!`);
+                mostrarDisponiblesCadete();
+            } else {
+                alert("❌ Código QR no reconocido o el pedido ya fue tomado.");
             }
+        }
 
-            localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+        function agregarAlLote(id) {
+            let disponibles = obtenerPedidosDisponiblesGlobales();
+            let lote = JSON.parse(localStorage.getItem('lt_lote_cadete_actual')) || [];
+            let item = disponibles.find(p => String(p.id).trim() === String(id).trim());
 
-            let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
-            let pCliente = pedidosCliente.find(p => String(p.id).trim() === String(idPedido).trim());
-            if (pCliente) {
-                pCliente.estado = 'En camino a retirar del comercio';
-                localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
+            if (item && !lote.some(l => String(l.id).trim() === String(id).trim())) {
+                lote.push(item);
+                localStorage.setItem('lt_lote_cadete_actual', JSON.stringify(lote));
+                mostrarDisponiblesCadete();
             }
+        }
 
-            window.dispatchEvent(new Event('storage'));
+        function quitarDelLote(id) {
+            let lote = JSON.parse(localStorage.getItem('lt_lote_cadete_actual')) || [];
+            lote = lote.filter(l => String(l.id).trim() !== String(id).trim());
+            localStorage.setItem('lt_lote_cadete_actual', JSON.stringify(lote));
+            mostrarDisponiblesCadete();
+        }
 
-            reproducirAlertaVoz("Lo tengo");
-            mostrarBurbujaEmergente("🛵 Pedido Asignado", "Dirígete al local comercial a retirar el paquete.");
+        function iniciarRutaOptimizada() {
+            let lote = JSON.parse(localStorage.getItem('lt_lote_cadete_actual')) || [];
+            if (lote.length === 0) return;
+
+            // Ordenamiento automático de ruta por cercanía o ID ascendente en Montevideo
+            lote.sort((a, b) => a.id - b.id);
+            localStorage.setItem('lt_lote_cadete_actual', JSON.stringify(lote));
+            localStorage.setItem('lt_ruta_cadete_activa', JSON.stringify(true));
+
+            alert("🚀 ¡Ruta iniciada y optimizada en Montevideo!\n\nEl sistema ha bloqueado la carga de nuevos pedidos hasta que finalices las entregas de este lote.");
             mostrarEnCursoCadete();
-        };
+        }
 
+        // ==========================================
+        // RUTA EN CURSO, AUXILIO Y PIN DE ENTREGA
+        // ==========================================
         function mostrarEnCursoCadete() {
             actualizarMenuActivoCadete(1);
             let sesion = obtenerCadeteActualizado();
             if (!sesion) return;
 
-            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
-            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-
-            baseEmpresas.forEach(emp => {
-                if (emp.pedidos) {
-                    emp.pedidos.forEach(p => {
-                        if ((String(p.ciCadete).trim() === String(sesion.ci).trim() || String(p.cadeteAsignado).trim() === String(sesion.nombre).trim()) && !String(p.estado || '').toLowerCase().includes('entregado')) {
-                            if (!pedidosCadete.some(pc => String(pc.id).trim() === String(p.id).trim())) {
-                                pedidosCadete.push({
-                                    id: p.id,
-                                    comercio: emp.nombre,
-                                    direccionComercio: emp.direccion || 'Montevideo',
-                                    cliente: p.cliente,
-                                    telefonoCliente: p.telefonoCliente || '099000000',
-                                    direccionCliente: p.direccion,
-                                    total: p.total,
-                                    codigoVerificacion: p.codigoVerificacion,
-                                    estado: p.estado,
-                                    ciCadete: sesion.ci
-                                });
-                            }
-                        }
-                    });
-                }
-            });
-
-            let enCurso = pedidosCadete.filter(p => String(p.ciCadete).trim() === String(sesion.ci).trim() && !String(p.estado || '').toLowerCase().includes('entregado'));
-            enCurso.sort((a, b) => b.id - a.id);
+            let rutaActiva = JSON.parse(localStorage.getItem('lt_ruta_cadete_activa')) || false;
+            let lote = JSON.parse(localStorage.getItem('lt_lote_cadete_actual')) || [];
 
             const container = document.getElementById('main-content-cadete');
-            let htmlCurso = enCurso.map(p => `
+
+            if (!rutaActiva || lote.length === 0) {
+                container.innerHTML = `
+                    <div id="bandera-vista-curso"></div>
+                    <div style="text-align:center; padding:40px 20px;">
+                        <h3 style="color:var(--primary); font-weight:900;">Sin Ruta Activa</h3>
+                        <p style="fontSize:13px; color:#666; margin-bottom:20px;">Armá tu lote de envíos desde la pestaña "Bolsa" y hacé clic en Iniciar Ruta.</p>
+                        <button type="button" onclick="mostrarDisponiblesCadete()" style="background:var(--primary); width:auto; padding:10px 20px;">Ir a la Bolsa 📦</button>
+                    </div>
+                `;
+                return;
+            }
+
+            let htmlRuta = lote.map((p, index) => `
                 <div style="background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: var(--radius); padding: 15px; margin-bottom: 15px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <strong style="color: var(--primary); font-size: 16px;">🛵 Pedido #${p.id.toString().slice(-4)}</strong>
-                        <span style="font-size: 11px; background:#eef2f6; padding:4px 8px; border-radius:6px; font-weight:bold;">${p.estado}</span>
+                        <strong style="color: var(--primary); font-size: 16px;">🗺️ Parada #${index + 1} - Pedido #${p.id.toString().slice(-4)}</strong>
+                        <span style="font-size: 11px; background:#eef2f6; padding:4px 8px; border-radius:6px; font-weight:bold;">En Ruta</span>
                     </div>
                     
-                    <p style="margin: 6px 0 2px 0; font-size: 13px;">🏪 <b>Retirar en:</b> ${p.comercio || 'Local'} (${p.direccionComercio || 'Montevideo'})</p>
-                    
+                    <p style="margin: 6px 0 2px 0; font-size: 13px;">🏪 <b>Retirar en:</b> ${p.comercio} (${p.direccionComercio})</p>
+
                     <div style="background: #eef2f6; padding: 10px; border-radius: 8px; margin: 8px 0; border: 1px dashed var(--primary);">
-                        <button type="button" onclick="marcarPaqueteRetirado('${p.id}')" style="background: var(--warning); color: #000; font-size: 12px; margin:0;">📦 Recibí el paquete / Retirado del local</button>
+                        <button type="button" onclick="tomarPedidoCadeteDesdeLote('${p.id}')" style="background: var(--warning); color: #000; font-size: 12px; margin:0;">📦 Confirmar Retiro del Local</button>
                     </div>
 
                     <div style="background: #FEE2E2; padding: 10px; border-radius: 8px; margin: 8px 0; border: 1px solid #EF4444;">
@@ -826,20 +831,46 @@
                     <div style="background:#f8f9fa; padding:10px; border-radius:8px; margin-top:8px;">
                         <label style="font-size:11px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">VERIFICAR PIN DE ENTREGA (Cliente):</label>
                         <input type="text" id="pin-ingresado-${p.id}" placeholder="PIN de 4 dígitos" style="margin-bottom:6px; text-align:center; font-size:16px; letter-spacing:2px; font-weight:bold;">
-                        <button type="button" onclick="finalizarEntregaConPin('${p.id}')" style="background:var(--success);">✅ Confirmar Entrega (Llegué al cliente)</button>
+                        <button type="button" onclick="finalizarEntregaConPinLote('${p.id}')" style="background:var(--success);">✅ Confirmar Entrega (Llegué)</button>
                     </div>
                 </div>
-            `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No tenés pedidos en curso actualmente.</p>';
+            `).join('');
 
             container.innerHTML = `
                 <div id="bandera-vista-curso"></div>
-                <div class="section-title"><span>🛵 Mis Pedidos en Curso</span></div>
-                ${htmlCurso}
+                <div class="section-title"><span>🛵 Ruta Activa (${lote.length} paradas pendientes)</span></div>
+                ${htmlRuta}
             `;
         }
 
+        window.tomarPedidoCadeteDesdeLote = async function(idPedido) {
+            let sesion = obtenerCadeteActualizado();
+            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+            
+            baseEmpresas.forEach(emp => {
+                if (emp.pedidos) {
+                    emp.pedidos.forEach(p => {
+                        if (String(p.id).trim() === String(idPedido).trim()) {
+                            p.estado = 'En camino hacia el cliente';
+                            p.cadeteAsignado = sesion.nombre;
+                            p.ciCadete = sesion.ci;
+
+                            fetch(`${BACKEND_URL}/api/pedidos`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(p)
+                            }).catch(err => {});
+                        }
+                    });
+                }
+            });
+            localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
+            alert("✅ ¡Paquete retirado! Estado actualizado a: En camino hacia el cliente.");
+            mostrarEnCursoCadete();
+        };
+
         window.reportarDesperfectoMecanico = function(idPedido) {
-            let zonaIncidente = prompt("Ingresá la esquina o zona aproximada donde tuviste el problema (ej: 18 de Julio y Ejido):", "Montevideo");
+            let zonaIncidente = prompt("Ingresá la esquina o zona aproximada del desperfecto (ej: 18 de Julio y Ejido):", "Montevideo");
             if (zonaIncidente !== null) {
                 let sesion = obtenerCadeteActualizado();
                 let alertas = JSON.parse(localStorage.getItem('lt_alertas_cadetes')) || [];
@@ -859,57 +890,18 @@
                 localStorage.setItem('lt_alertas_cadetes', JSON.stringify(alertas));
                 window.dispatchEvent(new Event('storage'));
 
-                alert("🚨 ¡Alerta enviada con éxito a la administración!\n\nLa central recibió tu ubicación y datos para coordinar un cadete de auxilio de inmediato.");
+                alert("🚨 ¡Alerta enviada a la administración!\n\nLa central recibió tu ubicación para coordinar un cadete de auxilio.");
             }
         };
 
-        window.marcarPaqueteRetirado = function(idPedido) {
-            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
-            let pedido = pedidosCadete.find(p => String(p.id).trim() === String(idPedido).trim());
-            if (!pedido) { alert("⚠️ Pedido no encontrado."); return; }
-
-            pedido.estado = 'En camino hacia el cliente';
-            localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
-
-            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            baseEmpresas.forEach(emp => {
-                if (emp.pedidos) {
-                    emp.pedidos.forEach(p => {
-                        if (String(p.id).trim() === String(idPedido).trim()) {
-                            p.estado = 'En camino hacia el cliente';
-                            fetch(`${BACKEND_URL}/api/pedidos`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(p)
-                            }).catch(err => console.warn("Modo offline", err));
-                        }
-                    });
-                }
-            });
-            localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
-
-            let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
-            pedidosCliente.forEach(p => {
-                if (String(p.id).trim() === String(idPedido).trim()) {
-                    p.estado = 'En camino hacia tu domicilio 🛵';
-                }
-            });
-            localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
-
-            window.dispatchEvent(new Event('storage'));
-
-            alert("✅ ¡Paquete marcado como retirado! Estado actualizado a: En camino hacia el cliente.");
-            mostrarEnCursoCadete();
-        };
-
-        window.finalizarEntregaConPin = function(idPedido) {
+        window.finalizarEntregaConPinLote = function(idPedido) {
             let inputPin = document.getElementById(`pin-ingresado-${idPedido}`);
             let pinIngresado = inputPin ? inputPin.value.trim() : '';
 
-            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
-            let pedido = pedidosCadete.find(p => String(p.id).trim() === String(idPedido).trim());
+            let lote = JSON.parse(localStorage.getItem('lt_lote_cadete_actual')) || [];
+            let pedido = lote.find(p => String(p.id).trim() === String(idPedido).trim());
 
-            if (!pedido) { alert("⚠️ Pedido no encontrado."); return; }
+            if (!pedido) { alert("⚠️ Pedido no encontrado en el lote."); return; }
 
             if (pinIngresado !== String(pedido.codigoVerificacion).trim()) {
                 alert("❌ PIN incorrecto. Solicitale el código de 4 dígitos al cliente.");
@@ -917,7 +909,6 @@
             }
 
             pedido.estado = 'Entregado y Cerrado';
-            localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
 
             let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             baseEmpresas.forEach(emp => {
@@ -929,7 +920,7 @@
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify(p)
-                            }).catch(err => console.warn("Modo offline", err));
+                            }).catch(err => {});
                         }
                     });
                 }
@@ -944,6 +935,7 @@
             });
             localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
 
+            // Guardar en historial del cadete
             let sesion = obtenerCadeteActualizado();
             let baseCadetes = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
             let cadIndex = baseCadetes.findIndex(c => String(c.ci).trim() === String(sesion.ci).trim());
@@ -956,11 +948,20 @@
                 localStorage.setItem('lt_sesion_cadete', JSON.stringify(baseCadetes[cadIndex]));
             }
 
-            window.dispatchEvent(new Event('storage'));
+            // Remover del lote actual
+            lote = lote.filter(l => String(l.id).trim() !== String(idPedido).trim());
+            localStorage.setItem('lt_lote_cadete_actual', JSON.stringify(lote));
 
-            reproducirAlertaVoz("Lo tengo");
-            mostrarBurbujaEmergente("🎉 ¡Entrega Exitosa!", "El pedido fue cerrado y registrado correctamente en tu historial.");
-            mostrarEnCursoCadete();
+            if (lote.length === 0) {
+                localStorage.setItem('lt_ruta_cadete_activa', JSON.stringify(false));
+                alert("🎉 ¡Ruta finalizada con éxito! Todas las paradas fueron entregadas. Ya podés tomar nuevos pedidos.");
+                mostrarDisponiblesCadete();
+            } else {
+                alert("✅ ¡Parada entregada con éxito! Siguiente parada en camino.");
+                mostrarEnCursoCadete();
+            }
+
+            window.dispatchEvent(new Event('storage'));
         };
 
         function mostrarHistorialCadete() {

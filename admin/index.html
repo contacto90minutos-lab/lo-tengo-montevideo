@@ -230,19 +230,40 @@
             margin: 0;
         }
 
+        /* Sistema de Columnas / Tablero KANBAN Admin */
+        .kanban-admin-columns {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .kanban-admin-column {
+            background: #F8FAFC;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            padding: 12px;
+        }
+        .kanban-admin-column-title {
+            font-size: 13px;
+            font-weight: 800;
+            margin: 0 0 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 6px;
+            border-bottom: 2px solid var(--border);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         .pedido-admin-card {
             background: #FFFFFF;
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            padding: 14px;
-            margin-bottom: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
             box-shadow: var(--shadow);
             border-left: 5px solid var(--border);
         }
-
-        .pedido-verde { border-left-color: var(--success); }
-        .pedido-amarillo { border-left-color: var(--warning); }
-        .pedido-rojo { border-left-color: var(--danger); background: #FEF2F2; }
 
         .table-container {
             width: 100%;
@@ -366,7 +387,7 @@
         </div>
     </div>
 
-    <!-- Script de Control, Planillas y Bases de Datos -->
+    <!-- Script de Control, Planillas y Tablero Kanban por Subestado -->
     <script>
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
 
@@ -374,7 +395,6 @@
         let alertasDesplegadas = {};
 
         document.addEventListener("DOMContentLoaded", () => {
-            // Ocultar Splash Screen después de 1.5 segundos
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
@@ -439,9 +459,7 @@
                 gain.connect(audioCtx.destination);
                 osc.start();
                 osc.stop(audioCtx.currentTime + 0.5);
-            } catch (e) {
-                console.log("Audio bloqueado o no soportado", e);
-            }
+            } catch (e) {}
         }
 
         function verificarAlertasCadetesEnVivo() {
@@ -632,7 +650,7 @@
         };
 
         // ==========================================
-        // GESTIÓN DE CADETES (CON NÚMERO IDENTIFICADOR)
+        // GESTIÓN DE CADETES
         // ==========================================
         function mostrarListaCadetesAdmin() {
             actualizarMenuActivoAdmin(3);
@@ -719,6 +737,9 @@
             alert(`✅ ¡Campaña enviada con éxito!\n\nSegmento: [${segmento}]\nMensaje: "${titulo}"\nLos clientes recibirán la recomendación basada en su historial.`);
         };
 
+        // ==========================================
+        // TABLERO KANBAN DE ÓRDENES POR SUBESTADOS (ADMIN)
+        // ==========================================
         function mostrarGestionPedidosAdmin() {
             actualizarMenuActivoAdmin(1);
             let datos = obtenerDatosGlobalesSistema();
@@ -754,51 +775,99 @@
                 `;
             }).join('');
 
-            let htmlPedidos = datos.listaPedidosGlobales.map(p => {
-                let st = (p.estado || '').toLowerCase();
-                let esFinalizado = st.includes('entregado') || st.includes('cerrado') || st.includes('cancelado');
-                
-                let tiempoMs = Date.now() - (p.id || Date.now());
-                let minutosTranscurridos = Math.floor(tiempoMs / 60000);
-                
-                let claseColor = 'pedido-verde';
-                if (p.esCancelada) {
-                    claseColor = '';
-                } else if (!esFinalizado) {
-                    if (minutosTranscurridos > 25) claseColor = 'pedido-rojo';
-                    else if (minutosTranscurridos > 15) claseColor = 'pedido-amarillo';
+            // Clasificar órdenes en columnas Kanban según su subestado
+            let colRecibidos = [];
+            let colEnRuta = [];
+            let colEntregados = [];
+            let colCancelados = [];
+
+            datos.listaPedidosGlobales.forEach(p => {
+                let st = (p.estado || '').toLowerCase().trim();
+                if (p.esCancelada || st.includes('cancelado')) {
+                    colCancelados.push(p);
+                } else if (st.includes('entregado') || st.includes('cerrado')) {
+                    colEntregados.push(p);
+                } else if (st.includes('listo') || st.includes('ruta') || st.includes('camino') || st.includes('retirar')) {
+                    colEnRuta.push(p);
+                } else {
+                    colRecibidos.push(p);
                 }
-
-                return `
-                    <div class="pedido-admin-card ${claseColor}" style="${p.esCancelada ? 'border-left-color: var(--danger); background: #FFF5F5; opacity: 0.85;' : ''}">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                            <b style="font-size:14px; color:var(--primary);">Orden #${p.id}</b>
-                            <span style="font-size:11px; font-weight:700; background:${p.esCancelada ? '#FEE2E2' : '#E2E8F0'}; color:${p.esCancelada ? '#991B1B' : '#0F172A'}; padding:2px 6px; border-radius:4px;">${p.estado || 'Activo'}</span>
-                        </div>
-                        <p style="margin:2px 0; font-size:12px;"><b>Comercio:</b> ${p.comercioNombre}</p>
-                        <p style="margin:2px 0; font-size:12px;"><b>Cliente:</b> ${p.cliente} (<a href="tel:${p.telefonoCliente}" style="color:var(--accent);">📞 ${p.telefonoCliente || 'Sin tel'}</a>)</p>
-                        <p style="margin:2px 0; font-size:12px;"><b>Destino:</b> ${p.direccion}</p>
-                        <p style="margin:2px 0; font-size:12px; color:${p.esCancelada ? 'var(--danger)' : 'var(--success)'};"><b>Total:</b> $${p.total} | <b>PIN:</b> ${p.codigoVerificacion}</p>
-                        <p style="margin:2px 0; font-size:11px; color:var(--text-muted);">⏱️ Tiempo transcurrido: aprox. ${minutosTranscurridos} min</p>
-
-                        ${!esFinalizado ? `
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:10px; border-top:1px dashed var(--border); padding-top:8px;">
-                                <button type="button" onclick="forzarRetiroAdmin('${p.comercioRut}',${p.id})" style="background:var(--warning); font-size:11px; padding:6px;">Forzar Retiro</button>
-                                <button type="button" onclick="forzarEntregaAdmin('${p.comercioRut}',${p.id})" style="background:var(--success); font-size:11px; padding:6px;">Forzar Entrega</button>
-                                <button type="button" onclick="liberarPedidoParaOtroCadete(${p.id})" style="background:#D97706; font-size:11px; padding:6px;">🔄 Liberar al Pool</button>
-                                <button type="button" onclick="transferirPedidoACadetePuntual(${p.id})" style="background:#2563EB; font-size:11px; padding:6px;">👤 Transferir Auxilio</button>
-                                <button type="button" onclick="cancelarOrdenAdmin('${p.comercioRut}',${p.id})" style="background:var(--danger); font-size:11px; padding:6px; grid-column: span 2;">Cancelar Orden</button>
-                            </div>
-                        ` : '<p style="font-size:11px; color:var(--text-muted); font-weight:700; margin:6px 0 0 0; text-align:right;">[Ciclo Cerrado / Finalizado]</p>'}
-                    </div>
-                `;
-            }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay órdenes registradas en el sistema.</p>';
+            });
 
             container.innerHTML = `
                 ${htmlAlertasAcordeon ? `<div class="section-header" style="color:var(--danger); margin-top:0;"><span>🚨 Panel de Alertas Logísticas</span></div>${htmlAlertasAcordeon}` : ''}
-                <div class="section-header"><span>Control de Órdenes en Tiempo Real</span></div>
-                ${htmlPedidos}
+                <div class="section-header"><span>Tablero Kanban de Órdenes en Tiempo Real</span></div>
+
+                <div class="kanban-admin-columns">
+                    <!-- Columna 1: Recibidas / En Preparación -->
+                    <div class="kanban-admin-column">
+                        <div class="kanban-admin-column-title" style="color: #0369A1;">
+                            <span>📥 Recibidas / En Preparación</span>
+                            <span style="background:#E0F2FE; color:#0369A1; padding:2px 8px; border-radius:10px; font-size:11px;">${colRecibidos.length}</span>
+                        </div>
+                        ${renderizarTarjetasColumnaAdmin(colRecibidos)}
+                    </div>
+
+                    <!-- Columna 2: Listas para Retirar / En Ruta -->
+                    <div class="kanban-admin-column">
+                        <div class="kanban-admin-column-title" style="color: #D97706;">
+                            <span>🛵 Listas para Retirar / En Ruta</span>
+                            <span style="background:#FEF3C7; color:#D97706; padding:2px 8px; border-radius:10px; font-size:11px;">${colEnRuta.length}</span>
+                        </div>
+                        ${renderizarTarjetasColumnaAdmin(colEnRuta)}
+                    </div>
+
+                    <!-- Columna 3: Entregadas y Cerradas -->
+                    <div class="kanban-admin-column">
+                        <div class="kanban-admin-column-title" style="color: #059669;">
+                            <span>✅ Entregadas / Cerradas</span>
+                            <span style="background:#ECFDF5; color:#059669; padding:2px 8px; border-radius:10px; font-size:11px;">${colEntregados.length}</span>
+                        </div>
+                        ${renderizarTarjetasColumnaAdmin(colEntregados)}
+                    </div>
+
+                    <!-- Columna 4: Canceladas -->
+                    <div class="kanban-admin-column">
+                        <div class="kanban-admin-column-title" style="color: #DC2626;">
+                            <span>❌ Canceladas / Anuladas</span>
+                            <span style="background:#FEE2E2; color:#DC2626; padding:2px 8px; border-radius:10px; font-size:11px;">${colCancelados.length}</span>
+                        </div>
+                        ${renderizarTarjetasColumnaAdmin(colCancelados)}
+                    </div>
+                </div>
             `;
+        }
+
+        function renderizarTarjetasColumnaAdmin(lista) {
+            if (lista.length === 0) return '<p style="text-align:center; color:var(--text-muted); font-size:11px; padding:10px;">Sin órdenes en esta columna.</p>';
+
+            return lista.map(p => {
+                let st = (p.estado || '').toLowerCase();
+                let esFinalizado = st.includes('entregado') || st.includes('cerrado') || st.includes('cancelado');
+
+                return `
+                    <div class="pedido-admin-card" style="${p.esCancelada ? 'border-left-color: var(--danger); background: #FFF5F5;' : ''}">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <b style="font-size:13px; color:var(--primary);">Orden #${p.id}</b>
+                            <span style="font-size:10px; font-weight:700; background:#E2E8F0; padding:2px 6px; border-radius:4px;">${p.estado || 'Activo'}</span>
+                        </div>
+                        <p style="margin:2px 0; font-size:11px;"><b>Comercio:</b> ${p.comercioNombre}</p>
+                        <p style="margin:2px 0; font-size:11px;"><b>Cliente:</b> ${p.cliente} (<a href="tel:${p.telefonoCliente}" style="color:var(--accent);">📞 ${p.telefonoCliente || 'Sin tel'}</a>)</p>
+                        <p style="margin:2px 0; font-size:11px;"><b>Destino:</b> ${p.direccion}</p>
+                        <p style="margin:2px 0; font-size:11px; color:var(--success);"><b>Total:</b> $${p.total} | <b>PIN:</b> ${p.codigoVerificacion}</p>
+
+                        ${!esFinalizado ? `
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:8px; border-top:1px dashed var(--border); padding-top:6px;">
+                                <button type="button" onclick="forzarRetiroAdmin('${p.comercioRut}',${p.id})" style="background:var(--warning); font-size:10px; padding:4px;">Forzar Retiro</button>
+                                <button type="button" onclick="forzarEntregaAdmin('${p.comercioRut}',${p.id})" style="background:var(--success); font-size:10px; padding:4px;">Forzar Entrega</button>
+                                <button type="button" onclick="liberarPedidoParaOtroCadete(${p.id})" style="background:#D97706; font-size:10px; padding:4px;">🔄 Liberar Pool</button>
+                                <button type="button" onclick="transferirPedidoACadetePuntual(${p.id})" style="background:#2563EB; font-size:10px; padding:4px;">👤 Auxilio</button>
+                                <button type="button" onclick="cancelarOrdenAdmin('${p.comercioRut}',${p.id})" style="background:var(--danger); font-size:10px; padding:4px; grid-column: span 2;">Cancelar Orden</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
         }
 
         window.toggleAlertaDesplegable = function(idAlerta) {
@@ -807,14 +876,14 @@
         };
 
         window.notificarClienteDemora = function(idPedido) {
-            if (!idPedido) { alert("⚠️ No hay ID de pedido asociado a esta alerta."); return; }
+            if (!idPedido) { alert("⚠️ No hay ID de pedido asociado."); return; }
             let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
             let pCliente = pedidosCliente.find(p => Number(p.id) === Number(idPedido));
             if (pCliente) {
                 pCliente.estadoAvisoDemora = "Su pedido está demorado por inconveniente logístico menor. Reasignado a cadete de auxilio en camino.";
                 localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
                 window.dispatchEvent(new Event('storage'));
-                alert(`✅ Notificación enviada con éxito al cliente del pedido #${idPedido}.`);
+                alert(`✅ Notificación enviada con éxito al cliente #${idPedido}.`);
             } else {
                 alert("✅ Notificación registrada para el cliente del pedido #" + idPedido);
             }
@@ -882,7 +951,7 @@
         };
 
         window.cancelarOrdenAdmin = function(rutComercio, idPedido) {
-            if (confirm(`⚠️ ¿ESTÁ SEGURO DE CANCELAR LA ORDEN #${idPedido}? Esta acción anulará el cobro y la comisión.`)) {
+            if (confirm(`⚠️ ¿ESTÁ SEGURO DE CANCELAR LA ORDEN #${idPedido}? Esta acción anulará el cobro.`)) {
                 actualizarEstadoOrdenAdmin(rutComercio, idPedido, 'Cancelado por Admin');
             }
         };
