@@ -11,10 +11,10 @@ const server = http.createServer(app);
 
 // Middlewares
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' })); // Ampliado para soportar imágenes de remitos en base64
 
 // Bases de datos en memoria centralizadas y sincronizadas
-let pedidosGlobales = []; // Aquí viven los envíos Express A➔B directos entre cliente y cadete
+let pedidosGlobales = []; // Envíos Express A➔B y Encomiendas Tres Cruces
 let usuariosRegistrados = []; // Clientes, Cadetes, Admin
 let cajaCadetes = {}; // { idCadete: { gananciasEnvios: 0, propinas: 0, historial: [] } }
 
@@ -88,16 +88,20 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
     Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c; // Distancia en kilómetros
+  return R * c; 
 }
 
-// Cálculo dinámico de envío según tipo de vehículo y distancia (con recálculo por km excedente)
-function calcularCostoEnvio(tipoVehiculo, distanciaKm, retornoOrigen = false) {
+// Cálculo dinámico de envío según tipo de vehículo, distancia y rubro
+function calcularCostoEnvio(tipoVehiculo, distanciaKm, esGastronomiaOFarmaciaSuper = false, retornoOrigen = false) {
   let distNum = parseFloat(distanciaKm) || 0;
   let distanciaEfectiva = retornoOrigen ? distNum * 2 : distNum;
   let costoEnvio = 0;
 
-  if (tipoVehiculo === 'moto') {
+  if (esGastronomiaOFarmaciaSuper) {
+    // Tarifa base $90 UYU hasta 7 km, salta a $120 UYU si excede
+    const umbralKm = 7;
+    costoEnvio = distanciaEfectiva <= umbralKm ? 90 : 120;
+  } else if (tipoVehiculo === 'moto') {
     const baseKm = 5;
     const precioBase = 190;
     const costoKmExtra = 10;
@@ -124,12 +128,21 @@ function calcularCostoEnvio(tipoVehiculo, distanciaKm, retornoOrigen = false) {
 }
 
 app.post('/api/envios/cotizar', (req, res) => {
-  const { tipoVehiculo, distanciaKm, retornoOrigen } = req.body;
-  if (!tipoVehiculo || distanciaKm === undefined) {
-    return res.status(400).json({ success: false, message: "Datos incompletos para cotizar" });
+  const { tipoVehiculo, distanciaKm, esGastronomiaOFarmaciaSuper, retornoOrigen, pesoTotalKg } = req.body;
+  if (distanciaKm === undefined) {
+    return res.status(400).json({ success: false, message: "Distancia obligatoria para cotizar" });
   }
-  const costoEnvio = calcularCostoEnvio(tipoVehiculo, parseFloat(distanciaKm), Boolean(retornoOrigen));
-  res.json({ success: true, costoTotalEnvio: costoEnvio });
+
+  let vehiculoFinal = tipoVehiculo || 'moto';
+  let peso = parseFloat(pesoTotalKg) || 0;
+
+  // Si supera los 15 kg, se fuerza camioneta automáticamente ($390 base)
+  if (peso > 15) {
+    vehiculoFinal = 'camioneta';
+  }
+
+  const costoEnvio = calcularCostoEnvio(vehiculoFinal, parseFloat(distanciaKm), Boolean(esGastronomiaOFarmaciaSuper), Boolean(retornoOrigen));
+  res.json({ success: true, tipoVehiculoSugerido: vehiculoFinal, costoTotalEnvio: costoEnvio });
 });
 
 // ==========================================
@@ -227,7 +240,7 @@ app.put('/api/usuarios/:id/perfil', (req, res) => {
   if (direccion) usuario.direccion = direccion;
   if (password) usuario.password = password;
   if (nuevaTarjeta) {
-    const ultimos4 = nuevaTarjeta.numero ? nuevaTarjeta.numero.slice(-4) : '0000';
+    const ultimos4 = nuevaTarjeta.numero ? String(nuevaTarjeta.numero).slice(-4) : '0000';
     usuario.tarjetas.push({
       id: Date.now(),
       banco: nuevaTarjeta.banco || 'Banco Genérico',
@@ -275,7 +288,7 @@ app.get('/api/cadetes/:id/caja-diaria', (req, res) => {
 });
 
 // ==========================================
-// ENDPOINTS REST API - PEDIDOS Y CHECKOUT (SEPARACIÓN EXPRESS A➔B vs COMERCIO)
+// ENDPOINTS REST API - PEDIDOS Y CHECKOUT
 // ==========================================
 app.get('/api/pedidos', (req, res) => {
   let todosLosPedidos = [...pedidosGlobales];
@@ -302,25 +315,42 @@ app.post('/api/pedidos', (req, res) => {
   nuevoPedido.pinSeguridad = Math.floor(1000 + Math.random() * 9000).toString();
   nuevoPedido.estado = 'pago_confirmado'; 
 
-  // RECALCULAR AUTOMÁTICAMENTE EL VALOR DEL ENVÍO SI VIENE DISTANCIA Y VEHÍCULO (Corrige km extra)
+  // Detectar si es encomienda a Tres Cruces
+  let esTresCruces = nuevoPedido.tipoPedido === 'tres_cruces' || nuevoPedido.esTresCruces;
+  if (esTresCruces) {
+    nuevoPedido.tipoPedido = 'tres_cruces';
+    nuevoPedido.destinoNombre = "Terminal Tres Cruces (Despacho)";
+    nuevoPedido.destinoLat = -34.8925; 
+    nuevoPedido.destinoLng = -56.1664;
+  }
+
+  // Validación estricta de peso (> 15 kg fuerza camioneta)
+  let peso = parseFloat(nuevoPedido.pesoTotalKg) || 0;
+  if (peso > 15) {
+    nuevoPedido.tipoVehiculo = 'camioneta';
+  }
+
+  let esGastronomiaOFarmaciaSuper = false;
+  if (nuevoPedido.rutComercio) {
+    let emp = baseEmpresas.find(e => String(e.rut).trim() === String(nuevoPedido.rutComercio).trim());
+    if (emp && ['Gastronomía', 'Farmacia', 'Supermercado'].includes(emp.giro)) {
+      esGastronomiaOFarmaciaSuper = true;
+    }
+  }
+
   if (nuevoPedido.distanciaKm !== undefined && nuevoPedido.tipoVehiculo) {
     nuevoPedido.valorEnvio = calcularCostoEnvio(
       nuevoPedido.tipoVehiculo, 
       parseFloat(nuevoPedido.distanciaKm), 
+      esGastronomiaOFarmaciaSuper,
       Boolean(nuevoPedido.retornoOrigen)
     );
   }
 
-  // Si es un envío Express A➔B, aseguramos que conserve los datos del destinatario
-  if (nuevoPedido.destinatarioNombre && !nuevoPedido.receptorInfo) {
-    nuevoPedido.destinatarioNombre = nuevoPedido.destinatarioNombre;
-    nuevoPedido.destinatarioTelefono = nuevoPedido.destinatarioTelefono;
-  }
-
-  // Cálculo financiero interno de comisiones
-  let comisionComercio = nuevoPedido.valorProducto ? (nuevoPedido.valorProducto * 0.10) : 0; // 10%
-  let comisionEnvio = nuevoPedido.valorEnvio ? (nuevoPedido.valorEnvio * 0.30) : 0; // 30%
-  let gananciaCadete = nuevoPedido.valorEnvio ? (nuevoPedido.valorEnvio - comisionEnvio) : (nuevoPedido.total ? (nuevoPedido.total * 0.70) : 140);
+  // Cálculos financieros (10% productos, 30% envíos para Lo Tengo, 70% envío para cadete)
+  let comisionComercio = nuevoPedido.valorProducto ? (nuevoPedido.valorProducto * 0.10) : 0;
+  let comisionEnvio = nuevoPedido.valorEnvio ? (nuevoPedido.valorEnvio * 0.30) : 0;
+  let gananciaCadete = nuevoPedido.valorEnvio ? (nuevoPedido.valorEnvio - comisionEnvio) : 140;
 
   nuevoPedido.comisionesLoTengo = {
     comercio: comisionComercio,
@@ -329,51 +359,38 @@ app.post('/api/pedidos', (req, res) => {
   };
   nuevoPedido.gananciaCadete = gananciaCadete;
 
-  // IDENTIFICAR SI ES EXPRESS A➔B PURO O PEDIDO DE COMERCIO
-  const esExpressAB = !nuevoPedido.rutComercio || nuevoPedido.tipoPedido === 'express';
+  // Enrutamiento global (Express A➔B o Tres Cruces) vs Comercio
+  const esGlobal = !nuevoPedido.rutComercio || nuevoPedido.tipoPedido === 'express' || nuevoPedido.tipoPedido === 'tres_cruces';
 
-  if (esExpressAB) {
-    // 1. Envío Directo A➔B: Va directo a pedidosGlobales. NO se asocia a ningún comercio ni cocina.
+  if (esGlobal) {
     pedidosGlobales.push(nuevoPedido);
   } else {
-    // 2. Pedido de Comercio: Se busca y asigna estrictamente al comercio correspondiente
     let empresaDestino = baseEmpresas.find(e => String(e.rut).trim() === String(nuevoPedido.rutComercio).trim());
     if (!empresaDestino) {
       empresaDestino = baseEmpresas[0];
       nuevoPedido.rutComercio = empresaDestino.rut;
     }
-
     if (!empresaDestino.pedidos) empresaDestino.pedidos = [];
-    
-    let indexExistente = empresaDestino.pedidos.findIndex(p => String(p.id).trim() === String(nuevoPedido.id).trim());
-    if (indexExistente !== -1) {
-      empresaDestino.pedidos[indexExistente] = nuevoPedido;
-    } else {
-      empresaDestino.pedidos.push(nuevoPedido);
-    }
+    empresaDestino.pedidos.push(nuevoPedido);
   }
 
   io.emit('nuevo_pedido_servidor', nuevoPedido);
-
-  // INICIAR MOTOR DE DESPACHO INTELIGENTE POR CERCANÍA
   iniciarDespachoInteligente(nuevoPedido);
 
   res.status(201).json({ success: true, pedido: nuevoPedido });
 });
 
-// Kill Switch Admin
+// Kill Switch Admin (Eliminar pedido)
 app.delete('/api/pedidos/:id', (req, res) => {
   const { id } = req.params;
   let eliminado = false;
 
-  // Buscar en pedidosGlobales (Express A➔B)
   let idxGlobal = pedidosGlobales.findIndex(p => String(p.id).trim() === String(id).trim());
   if (idxGlobal !== -1) {
     pedidosGlobales.splice(idxGlobal, 1);
     eliminado = true;
   }
 
-  // Buscar en comercios
   baseEmpresas.forEach(emp => {
     if (emp.pedidos) {
       let idx = emp.pedidos.findIndex(p => String(p.id).trim() === String(id).trim());
@@ -404,17 +421,17 @@ function iniciarDespachoInteligente(pedido) {
       origenLat = emp.lat;
       origenLng = emp.lng;
     }
-  } // Si es Express A➔B, respeta el origenLat/origenLng enviado por el cliente (Punto A)
+  }
 
   let ahora = Date.now();
   let candidatos = Object.values(cadetesConectados).filter(c => {
     if (c.estado !== 'libre') return false;
     if (c.penalizadoHasta && c.penalizadoHasta > ahora) return false;
+    if (pedido.tipoVehiculo === 'camioneta' && c.vehiculo !== 'camioneta') return false;
     return true;
   });
 
   if (candidatos.length === 0) {
-    console.log(`[DESPACHO] No hay cadetes libres disponibles en este momento para el pedido ${pedido.id}`);
     io.emit('alerta_admin_sin_cadetes', { pedidoId: pedido.id });
     return;
   }
@@ -425,8 +442,6 @@ function iniciarDespachoInteligente(pedido) {
     return distA - distB;
   });
 
-  let cadeteElegido = candidatos[0];
-  
   despachosActivos[pedido.id] = {
     candidatosIndex: 0,
     candidatosList: candidatos,
@@ -444,7 +459,6 @@ function llamarSiguienteCadete(pedidoId) {
   let { candidatosList, candidatosIndex, pedido } = despacho;
 
   if (candidatosIndex >= candidatosList.length) {
-    console.log(`[DESPACHO] Todos los cadetes cercanos rechazaron o ignoraron el pedido ${pedidoId}`);
     io.emit('pedido_sin_respuesta_flota', { id: pedidoId });
     delete despachosActivos[pedidoId];
     return;
@@ -453,15 +467,12 @@ function llamarSiguienteCadete(pedidoId) {
   let cadeteActual = candidatosList[candidatosIndex];
   despacho.intentandoSocketId = cadeteActual.socketId;
 
-  console.log(`[DESPACHO] Llamando al cadete ${cadeteActual.nombre} (${cadeteActual.id}) para pedido ${pedidoId}`);
-
   io.to(cadeteActual.socketId).emit('oferta_envio_cercano', {
     pedido,
     tiempoLimiteSec: 30
   });
 
   despacho.timeoutId = setTimeout(() => {
-    console.log(`[DESPACHO] Timeout sin respuesta del cadete ${cadeteActual.nombre} para pedido ${pedidoId}`);
     registrarRechazoOFalta(cadeteActual.socketId);
     despacho.candidatosIndex++;
     llamarSiguienteCadete(pedidoId);
@@ -473,8 +484,6 @@ function registrarRechazoOFalta(socketId) {
   if (!cadete) return;
 
   cadete.rechazosConsecutivos = (cadete.rechazosConsecutivos || 0) + 1;
-  console.log(`[SANCIONES] Cadete ${cadete.nombre} acumuló ${cadete.rechazosConsecutivos} rechazos/faltas.`);
-
   if (cadete.rechazosConsecutivos >= 3) {
     cadete.penalizadoHasta = Date.now() + 3600000; // 1 hora
     cadete.rechazosConsecutivos = 0;
@@ -482,7 +491,6 @@ function registrarRechazoOFalta(socketId) {
       motivo: "Acumuló 3 rechazos o inasistencias consecutivas.",
       suspensionHasta: cadete.penalizadoHasta 
     });
-    console.log(`[SANCIONES] Cadete ${cadete.nombre} suspendido por 1 hora.`);
   }
 }
 
@@ -494,13 +502,12 @@ const io = new Server(server, {
 });
 
 io.on('connection', (socket) => {
-  console.log(`Usuario conectado: ${socket.id}`);
-
   socket.on('registrar_cadete', (data) => {
     cadetesConectados[socket.id] = {
       socketId: socket.id,
       id: data.id,
       nombre: data.nombre || 'Cadete',
+      vehiculo: data.vehiculo || 'moto',
       lat: data.lat || -34.9032,
       lng: data.lng || -56.1882,
       estado: 'libre',
@@ -540,7 +547,6 @@ io.on('connection', (socket) => {
 
         io.emit('pedido_asignado', despacho.pedido);
         delete despachosActivos[pedidoId];
-        console.log(`[DESPACHO] Pedido ${pedidoId} asignado exitosamente al cadete ${cadeteInfo.nombre}`);
       }
     }
   });
@@ -557,18 +563,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Validación de PIN, Datos Express (Nombre+CI) y Foto de Remito (Tres Cruces)
+  // Validación de Entrega (PIN, Nombre+CI para Express, o Foto de Remito para Tres Cruces)
   socket.on('completar_entrega_pedido', (data) => {
     const { pedidoId, pinIngresado, receptorInfo, fotoComprobante } = data;
-    
     let pedidoEncontrado = null;
 
-    // Buscar en pedidos globales (Express A➔B)
     let pGlobal = pedidosGlobales.find(x => String(x.id).trim() === String(pedidoId).trim());
     if (pGlobal) {
       pedidoEncontrado = pGlobal;
     } else {
-      // Buscar en comercios
       baseEmpresas.forEach(emp => {
         if (emp.pedidos) {
           let p = emp.pedidos.find(x => String(x.id).trim() === String(pedidoId).trim());
@@ -581,18 +584,17 @@ io.on('connection', (socket) => {
       return socket.emit('error_entrega', { message: "Pedido no encontrado" });
     }
 
-    // Validación condicional según el tipo de pedido
-    let esTresCruces = pedidoEncontrado.tipoPedido === 'tres_cruces' || pedidoEncontrado.esTresCruces;
-    let esExpressAB = pedidoEncontrado.tipoPedido === 'express' || (!pedidoEncontrado.rutComercio && !esTresCruces);
+    let esTresCruces = pedidoEncontrado.tipoPedido === 'tres_cruces';
+    let esExpressAB = pedidoEncontrado.tipoPedido === 'express';
 
     if (esTresCruces) {
       if (!fotoComprobante) {
-        return socket.emit('error_entrega', { message: "Se requiere foto del remito para Tres Cruces" });
+        return socket.emit('error_entrega', { message: "Se requiere obligatoriamente la foto del remito de despacho (Tres Cruces)." });
       }
       pedidoEncontrado.fotoComprobante = fotoComprobante;
     } else if (esExpressAB) {
       if (!receptorInfo || !receptorInfo.nombre || !receptorInfo.ci) {
-        return socket.emit('error_entrega', { message: "Se requiere Nombre y Cédula de quien recibe" });
+        return socket.emit('error_entrega', { message: "Se requiere obligatoriamente Nombre y Cédula de quien recibe el envío." });
       }
       pedidoEncontrado.receptorInfo = receptorInfo;
     } else {
@@ -608,7 +610,6 @@ io.on('connection', (socket) => {
     });
 
     io.emit('pedido_entregado_exito', pedidoEncontrado);
-    console.log(`[ENTREGA] Pedido ${pedidoId} entregado con éxito y validado.`);
   });
 
   socket.on('cambiar_estado_pedido', (data) => {
@@ -616,7 +617,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`Usuario desconectado: ${socket.id}`);
     delete cadetesConectados[socket.id];
   });
 });
@@ -624,7 +624,7 @@ io.on('connection', (socket) => {
 // Diagnóstico
 app.get('/api/status', (req, res) => {
   res.json({ 
-    status: "API de Lo Tengo 100% operativa y blindada para producción 🚀", 
+    status: "API de Lo Tengo 100% operativa con todas sus características y reglas 🚀", 
     totalEmpresas: baseEmpresas.length,
     totalPedidosGlobales: pedidosGlobales.length,
     totalCadetesConectados: Object.keys(cadetesConectados).length
@@ -633,5 +633,5 @@ app.get('/api/status', (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto ${PORT}`);
+  console.log(`Servidor de Lo Tengo corriendo en el puerto ${PORT}`);
 });
