@@ -339,6 +339,7 @@
             }, 3000);
 
             window.addEventListener('storage', () => {
+                sincronizarEstadosCadeteLocales();
                 let emp = obtenerEmpresaActualizada();
                 if (emp) {
                     actualizarContadorPedidosBadge(emp.rut);
@@ -360,8 +361,8 @@
 
             socket.on('nuevo_pedido_servidor', (pedido) => {
                 let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
-                // Verificar estrictamente que el pedido pertenezca a ESTE comercio y NO sea Express A-B / Tres Cruces
-                if (sesion && pedido.rutComercio && String(pedido.rutComercio).trim() === String(sesion.rut).trim()) {
+                let esExpressO3Cruces = pedido.tipoPedido === 'express' || pedido.tipoPedido === 'tres_cruces' || pedido.esTresCruces;
+                if (sesion && pedido.rutComercio && String(pedido.rutComercio).trim() === String(sesion.rut).trim() && !esExpressO3Cruces) {
                     reproducirChicharraAlerta();
                     showToast("🛎️ ¡Nuevo pedido recibido!");
                     sincronizarPedidosDesdeServidor();
@@ -371,10 +372,59 @@
             socket.on('actualizacion_pedido', () => {
                 sincronizarPedidosDesdeServidor();
             });
+
+            socket.on('pedido_entregado_exito', () => {
+                sincronizarEstadosCadeteLocales();
+                sincronizarPedidosDesdeServidor();
+            });
+        }
+
+        // SINCRONIZA EL ESTADO DE Cierre/Entrega DESDE EL MODULO DE CADETES
+        function sincronizarEstadosCadeteLocales() {
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
+            if (!sesion) return;
+
+            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+            let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
+            if (!emp || !emp.pedidos) return;
+
+            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            let cambiosRealizados = false;
+
+            emp.pedidos.forEach(p => {
+                let matchCadete = pedidosCadete.find(pc => Number(pc.id) === Number(p.id));
+                if (matchCadete && matchCadete.estado) {
+                    let stC = matchCadete.estado.toLowerCase();
+                    if (stC.includes('entregado') || stC.includes('cerrado')) {
+                        if (p.estado !== 'Entregado y Cerrado') {
+                            p.estado = 'Entregado y Cerrado';
+                            cambiosRealizados = true;
+                        }
+                    }
+                }
+            });
+
+            // Eliminar estrictamente cualquier pedido cruzado de Express o Tres Cruces que se haya colado
+            let filtrados = emp.pedidos.filter(p => {
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                let rutMatch = !p.rutComercio || String(p.rutComercio).trim() === String(emp.rut).trim();
+                return !esExpressO3Cruces && rutMatch;
+            });
+
+            if (filtrados.length !== emp.pedidos.length) {
+                emp.pedidos = filtrados;
+                cambiosRealizados = true;
+            }
+
+            if (cambiosRealizados) {
+                localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+                localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
+            }
         }
 
         async function sincronizarPedidosDesdeServidor() {
             try {
+                sincronizarEstadosCadeteLocales();
                 let response = await fetch(`${BACKEND_URL}/api/pedidos`);
                 if (response.ok) {
                     let pedidosRemotos = await response.json();
@@ -384,19 +434,33 @@
                         if (base.length > 0 && sesion) {
                             let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
                             if (emp) {
+                                let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
                                 let mapaLocal = new Map();
                                 (emp.pedidos || []).forEach(p => mapaLocal.set(String(p.id).trim(), p));
                                 
                                 let nuevosEntrantes = 0;
                                 pedidosRemotos.forEach(pR => {
-                                    // FILTRO ESTRICTO: Solo pedidos del catálogo de ESTE comercio (Excluye Express A->B y Tres Cruces)
-                                    if (pR.rutComercio && String(pR.rutComercio).trim() === String(emp.rut).trim()) {
+                                    let esDeEstaEmpresa = pR.rutComercio && String(pR.rutComercio).trim() === String(emp.rut).trim();
+                                    let esExpressO3Cruces = pR.tipoPedido === 'express' || pR.tipoPedido === 'tres_cruces' || pR.esTresCruces;
+                                    
+                                    if (esDeEstaEmpresa && !esExpressO3Cruces) {
+                                        // Verificar si el cadete ya lo cerró
+                                        let matchC = pedidosCadete.find(pc => Number(pc.id) === Number(pR.id));
+                                        if (matchC && matchC.estado && matchC.estado.toLowerCase().includes('entregado')) {
+                                            pR.estado = 'Entregado y Cerrado';
+                                        }
+
                                         if (!mapaLocal.has(String(pR.id).trim())) nuevosEntrantes++;
                                         mapaLocal.set(String(pR.id).trim(), pR);
                                     }
                                 });
 
-                                emp.pedidos = Array.from(mapaLocal.values());
+                                emp.pedidos = Array.from(mapaLocal.values()).filter(p => {
+                                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                                    let rutMatch = !p.rutComercio || String(p.rutComercio).trim() === String(emp.rut).trim();
+                                    return !esExpressO3Cruces && rutMatch;
+                                });
+
                                 localStorage.setItem('lt_base_empresas', JSON.stringify(base));
                                 localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
 
@@ -571,6 +635,7 @@
         }
 
         function obtenerEmpresaActualizada() {
+            sincronizarEstadosCadeteLocales();
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
             if (!sesion) return null;
             return obtenerEmpresaActualizadaPorRut(sesion.rut);
@@ -580,6 +645,12 @@
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
             if (emp) {
+                // Filtrar por seguridad cualquier pedido cruzado
+                emp.pedidos = (emp.pedidos || []).filter(p => {
+                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                    let rutMatch = !p.rutComercio || String(p.rutComercio).trim() === String(emp.rut).trim();
+                    return !esExpressO3Cruces && rutMatch;
+                });
                 localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
             }
             return emp;
@@ -590,7 +661,9 @@
             if (emp && emp.pedidos) {
                 let pendientes = emp.pedidos.filter(p => {
                     let st = (p.estado || '').toLowerCase().trim();
-                    return st !== 'listo para retirar (en ruta/cadete)' && 
+                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                    return !esExpressO3Cruces && 
+                           st !== 'listo para retirar (en ruta/cadete)' && 
                            !st.includes('entregado') && 
                            !st.includes('cerrado');
                 });
@@ -607,9 +680,13 @@
             const container = document.getElementById('main-content-empresa');
             let totalPedidos = (emp.pedidos || []).filter(p => {
                 let st = (p.estado || '').toLowerCase().trim();
-                return st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                return !esExpressO3Cruces && st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
             }).length;
-            let totalEnRuta = (emp.pedidos || []).filter(p => p.estado === 'Listo para Retirar (En Ruta/Cadete)').length;
+            let totalEnRuta = (emp.pedidos || []).filter(p => {
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                return !esExpressO3Cruces && p.estado === 'Listo para Retirar (En Ruta/Cadete)';
+            }).length;
 
             let textoQrMostrador = `LOTENGO:CATALOGO:RUT:${emp.rut}`;
             let urlQrMostrador = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(textoQrMostrador)}`;
@@ -752,12 +829,15 @@
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
+            sincronizarEstadosCadeteLocales();
             actualizarContadorPedidosBadge(emp.rut);
             const container = document.getElementById('main-content-empresa');
 
             let pedidosActivos = (emp.pedidos || []).filter(p => {
                 let st = (p.estado || '').toLowerCase().trim();
-                return st !== 'listo para retirar (en ruta/cadete)' && 
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                return !esExpressO3Cruces && 
+                       st !== 'listo para retirar (en ruta/cadete)' && 
                        !st.includes('entregado') && 
                        !st.includes('cerrado');
             });
@@ -810,8 +890,12 @@
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
+            sincronizarEstadosCadeteLocales();
             const container = document.getElementById('main-content-empresa');
-            let pedidosEnRuta = (emp.pedidos || []).filter(p => p.estado === 'Listo para Retirar (En Ruta/Cadete)');
+            let pedidosEnRuta = (emp.pedidos || []).filter(p => {
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                return !esExpressO3Cruces && p.estado === 'Listo para Retirar (En Ruta/Cadete)';
+            });
             pedidosEnRuta.sort((a, b) => b.id - a.id);
 
             let htmlRuta = pedidosEnRuta.map(p => `
@@ -845,10 +929,12 @@
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
+            sincronizarEstadosCadeteLocales();
             const container = document.getElementById('main-content-empresa');
             let pedidosCerrados = (emp.pedidos || []).filter(p => {
                 let st = (p.estado || '').toLowerCase().trim();
-                return st.includes('entregado') || st.includes('cerrado');
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                return !esExpressO3Cruces && (st.includes('entregado') || st.includes('cerrado'));
             });
             pedidosCerrados.sort((a, b) => b.id - a.id);
 
