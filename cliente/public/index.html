@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+    <!-- Leaflet Map CSS y JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LO TENGO - Clientes</title>
@@ -280,6 +283,7 @@
             </button>
         </div>
     </div>
+
     <script>
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
         let socket = null;
@@ -707,6 +711,11 @@
                 codigoVerificacion: pinGenerado
             };
 
+            // Guardar localmente y sincronizar pedidos activos
+            let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            pedidosActivos.push(nuevoPedido);
+            localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidosActivos));
+
             if (!emp.pedidos) emp.pedidos = [];
             emp.pedidos.push(nuevoPedido);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
@@ -724,190 +733,319 @@
             mostrarPedidosActivos();
         }
 
- // MÓDULO DE CADETERÍA EXPRESS (CON PESO AUTOMÁTICO Y TRES CRUCES)
-let tipoVehiculoCadete = 'moto';
+        // MÓDULO DE CADETERÍA EXPRESS (CON MAPA Y CÁLCULO DE DISTANCIA)
+        let tipoVehiculoCadete = 'moto';
+        let mapaExpress = null;
+        let markerOrigen = null;
+        let markerDestino = null;
 
-function mostrarFormularioCadeteria() {
-    actualizarMenuActivo(2);
-    let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
+        function mostrarFormularioCadeteria() {
+            actualizarMenuActivo(2);
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
 
-    document.getElementById('main-content').innerHTML = `
-        <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
-        </button>
-        <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">🛵 Cadetería Express (A ➔ B)</h3>
-        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Envío seguro e independiente entre usuario y cadete.</p>
+            document.getElementById('main-content').innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
+                </button>
+                <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">🛵 Cadetería Express (A ➔ B)</h3>
+                <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Trazabilidad en tiempo real y cálculo de distancia automático.</p>
 
-        <label>Seleccionar Vehículo:</label>
-        <div class="vehiculo-selector-grid">
-            <div id="card-moto" class="vehiculo-card-opcion seleccionado" onclick="setVehiculoCadete('moto')">
-                <div style="font-size:26px; margin-bottom:4px;">🏍️</div>
-                <div style="font-size:14px; font-weight:900;">Moto</div>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Hasta 15 kg - Base $290</div>
-            </div>
-            <div id="card-camioneta" class="vehiculo-card-opcion" onclick="setVehiculoCadete('camioneta')">
-                <div style="font-size:26px; margin-bottom:4px;">🚐</div>
-                <div style="font-size:14px; font-weight:900;">Camioneta</div>
-                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Más de 15 kg - Base $550</div>
-            </div>
-        </div>
+                <!-- CONTENEDOR VISUAL DEL MAPA -->
+                <div id="mapa-express" style="height: 220px; border-radius: var(--radius-md); margin-bottom: 16px; border: 1.5px solid var(--card-border); z-index: 1;"></div>
 
-        <label>Peso estimado del paquete (kg):</label>
-        <input type="number" id="cadPeso" value="2" min="1" step="0.5" oninput="verificarPesoYVehiculo()" placeholder="Ej: 5">
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label style="margin:0;">Origen (Punto A - Retiro):</label>
-            <button type="button" onclick="obtenerUbicacionGPSOrigen()" style="width:auto; padding:4px 10px; font-size:11px; background:#E5E7EB; color:var(--text-main); border:1px solid var(--card-border); box-shadow:none;">📍 Usar GPS</button>
-        </div>
-        <input type="text" id="cadOrigen" value="${sesion.direccion || ''}" placeholder="Ej: Av. 18 de Julio 1200" oninput="actualizarCalculoCadeteria()">
-
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; background:#FEF3C7; padding:10px 14px; border-radius:var(--radius-md); border:1.5px solid #F59E0B;">
-            <input type="checkbox" id="checkTresCruces" onchange="toggleTresCruces()" style="width:auto; margin:0;">
-            <label for="checkTresCruces" style="margin:0; font-size:13px; color:#B45309; font-weight:800; cursor:pointer;">🏢 Despacho en Terminal Tres Cruces (Requiere foto de remito obligatoria)</label>
-        </div>
-
-        <div id="contenedor-destinos-cadete">
-            <label>Destino (Punto B):</label>
-            <input type="text" id="cadDestino" class="input-destino-cadete" placeholder="Calle, número o agencia de destino" oninput="actualizarCalculoCadeteria()">
-        </div>
-
-        <!-- DATOS OBLIGATORIOS DE QUIEN RECIBE EN EXPRESS -->
-        <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border);">
-            <label style="color:var(--primary); font-weight:900; margin-bottom:8px;">👤 Datos de la persona que recibe:</label>
-            <input type="text" id="destinatarioNombre" placeholder="Nombre completo de quien recibe *" style="margin-bottom:8px;">
-            <input type="tel" id="destinatarioTelefono" placeholder="Teléfono de contacto de quien recibe *" style="margin:0;">
-        </div>
-
-        <label>Descripción del paquete o encomienda:</label>
-        <textarea id="cadDescripcion" rows="2" placeholder="Ej: Caja mediana / Documentación..."></textarea>
-
-        <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border);">
-            <label style="font-size:12px; margin-bottom:6px; color:var(--primary);">🪙 Propina 100% para el cadete:</label>
-            <div style="display:flex; gap:6px; margin-bottom:10px;">
-                <button type="button" id="btn-prop-cad-0" class="btn-propina-opcion" onclick="setPropinaCadete(0)">$0</button>
-                <button type="button" id="btn-prop-cad-35" class="btn-propina-opcion activo" onclick="setPropinaCadete(35)">$35</button>
-                <button type="button" id="btn-prop-cad-55" class="btn-propina-opcion" onclick="setPropinaCadete(55)">$55</button>
-            </div>
-            <input type="number" id="inputPropinaCadete" value="35" min="0" step="5" oninput="actualizarCalculoCadeteria()" style="margin:0; padding:8px;">
-        </div>
-
-        <div id="panel-tarifa-cadete" style="background:#F9FAFB; border:1.5px solid var(--card-border); border-radius:var(--radius-md); padding:14px; margin-bottom:16px; font-size:13px;">
-            📍 Ingresá origen y destino para calcular la tarifa.
-        </div>
-
-        <button type="button" onclick="solicitarCadeteriaExpressFinal()" style="background:var(--success); font-weight:800;">Solicitar Envío Express</button>
-    `;
-    actualizarCalculoCadeteria();
-}
-
-function verificarPesoYVehiculo() {
-    let peso = parseFloat(document.getElementById('cadPeso').value) || 0;
-    if (peso > 15) {
-        if (tipoVehiculoCadete !== 'camioneta') {
-            setVehiculoCadete('camioneta');
-            showToast("⚠️ Peso mayor a 15 kg: asignado automáticamente a Camioneta", "error");
-        }
-    }
-    actualizarCalculoCadeteria();
-}
-async function solicitarCadeteriaExpressFinal() {
-    let origen = document.getElementById('cadOrigen').value.trim();
-    let destino = document.getElementById('cadDestino').value.trim();
-    let pesoKg = parseFloat(document.getElementById('cadPeso').value) || 1;
-    let nomRecibe = document.getElementById('destinatarioNombre').value.trim();
-    let telRecibe = document.getElementById('destinatarioTelefono').value.trim();
-    let desc = document.getElementById('cadDescripcion').value.trim();
-    let esTC = document.getElementById('checkTresCruces').checked;
-    let propina = Number(document.getElementById('inputPropinaCadete').value) || 0;
-    let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
-
-    if (!origen || !destino || !nomRecibe || !telRecibe) {
-        showToast("Completá origen, destino y los datos de quien recibe", "error");
-        return;
-    }
-
-    let tarifaBase = tipoVehiculoCadete === 'moto' ? 290 : 550;
-    let subtotal = tarifaBase + propina;
-    let recargoMP = subtotal * 0.07;
-    let totalFinal = Math.round((subtotal + recargoMP) * 100) / 100;
-
-    let nuevoPedido = {
-        id: Date.now(),
-        tipoPedido: esTC ? 'tres_cruces' : 'express',
-        esTresCruces: esTC,
-        pesoKg: pesoKg,
-        rutComercio: null, // Garantiza que no toque cocinas de comercios
-        cliente: sesion.nombre || 'Cliente Montevideo',
-        telefonoCliente: sesion.telefono || '099000000',
-        origen: origen,
-        direccion: destino,
-        destinatarioNombre: nomRecibe,
-        destinatarioTelefono: telRecibe,
-        total: totalFinal,
-        estado: 'Recibido',
-        descripcion: `Express (${tipoVehiculoCadete} - ${pesoKg}kg) | Recibe: ${nomRecibe} (${telRecibe}) | ${desc}`,
-        items: [
-            { nombre: `Cadetería Express (${tipoVehiculoCadete} - ${pesoKg}kg)`, precio: tarifaBase, cantidad: 1 },
-            ...(propina > 0 ? [{ nombre: 'Propina Cadete', precio: propina, cantidad: 1 }] : []),
-            { nombre: 'Recargo Pasarela MP (7%)', precio: Math.round(recargoMP * 100) / 100, cantidad: 1 }
-        ],
-        codigoVerificacion: Math.floor(1000 + Math.random() * 9000).toString()
-    };
-
-    let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-    if (!base[0].pedidos) base[0].pedidos = [];
-    base[0].pedidos.push(nuevoPedido);
-    
-    localStorage.setItem('lt_base_empresas', JSON.stringify(base));
-    window.dispatchEvent(new Event('storage'));
-
-    try {
-        await fetch(`${BACKEND_URL}/api/pedidos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(nuevoPedido)
-        });
-    } catch (e) {}
-
-    showToast("¡Envío Express solicitado con éxito!");
-    mostrarPedidosActivos();
-}
-                return `
-                    <div class="comercio-card" style="display:block; border-left: 5px solid ${st.includes('cancelado') ? 'var(--danger)' : 'var(--primary)'}; margin-bottom: 14px;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                            <strong style="color:var(--text-main); font-size:14px; font-weight:900;">Pedido #${p.id.toString().slice(-4)}</strong>
-                            <span class="badge-estado ${claseBadge}">${textoEstado}</span>
-                        </div>
-                        <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">🏪 Servicio: <b>${p.empresaNombre}</b></p>
-                        <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📍 ${p.descripcion ? '<b>' + p.descripcion + '</b>' : 'Destino: <b>' + p.direccion + '</b>'}</p>
-                        <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📦 ${itemsTexto}</p>
-                        <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">💳 Total: <b>$${p.total}</b></p>
-                        
-                        ${!esFinalizado && p.pinSeguridad ? `
-                            <div style="background:#FFF7ED; padding:12px; border-radius:var(--radius-md); text-align:center; margin-top:12px; border: 1.5px solid #FDBA74;">
-                                <span style="font-size:12px; color:#C2410C; font-weight:700;">🔑 PIN de seguridad (Entregá al cadete):</span>
-                                <div style="font-size:22px; font-weight:900; color:#C2410C; letter-spacing:2px; margin-top:4px;">${p.pinSeguridad}</div>
-                            </div>
-                        ` : ''}
-
-                        ${comprobanteEntregaInfo}
-
-                        ${puedeCancelar ? `
-                            <div style="margin-top:12px; border-top:1px dashed var(--card-border); padding-top:10px; text-align:right;">
-                                <button type="button" onclick="mostrarModalCancelarPedido('${p.id}')" style="background:var(--danger); font-size:12px; padding:10px 14px; width:auto; display:inline-block; box-shadow:none;">❌ Cancelar Pedido</button>
-                            </div>
-                        ` : ''}
+                <label>Seleccionar Vehículo:</label>
+                <div class="vehiculo-selector-grid">
+                    <div id="card-moto" class="vehiculo-card-opcion seleccionado" onclick="setVehiculoCadete('moto')">
+                        <div style="font-size:26px; margin-bottom:4px;">🏍️</div>
+                        <div style="font-size:14px; font-weight:900;">Moto</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $290 (hasta 8km)</div>
                     </div>
+                    <div id="card-camioneta" class="vehiculo-card-opcion" onclick="setVehiculoCadete('camioneta')">
+                        <div style="font-size:26px; margin-bottom:4px;">🚐</div>
+                        <div style="font-size:14px; font-weight:900;">Camioneta</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $550 (hasta 10km)</div>
+                    </div>
+                </div>
+
+                <label>Peso estimado del paquete (kg):</label>
+                <input type="number" id="cadPeso" value="2" min="1" step="0.5" oninput="verificarPesoYVehiculo()" placeholder="Ej: 5">
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label style="margin:0;">Origen (Punto A - Retiro):</label>
+                    <button type="button" onclick="obtenerUbicacionGPSOrigen()" style="width:auto; padding:4px 10px; font-size:11px; background:#E5E7EB; color:var(--text-main); border:1px solid var(--card-border); box-shadow:none;">📍 Usar GPS</button>
+                </div>
+                <input type="text" id="cadOrigen" value="${sesion.direccion || ''}" placeholder="Ej: Av. 18 de Julio 1200" oninput="actualizarCalculoConMapa()">
+
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; background:#FEF3C7; padding:10px 14px; border-radius:var(--radius-md); border:1.5px solid #F59E0B;">
+                    <input type="checkbox" id="checkTresCruces" onchange="toggleTresCruces()" style="width:auto; margin:0;">
+                    <label for="checkTresCruces" style="margin:0; font-size:13px; color:#B45309; font-weight:800; cursor:pointer;">🏢 Despacho en Terminal Tres Cruces (Foto de remito obligatoria)</label>
+                </div>
+
+                <div id="contenedor-destinos-cadete">
+                    <label>Destino (Punto B):</label>
+                    <input type="text" id="cadDestino" class="input-destino-cadete" placeholder="Calle, número o destino" oninput="actualizarCalculoConMapa()">
+                </div>
+
+                <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border);">
+                    <label style="color:var(--primary); font-weight:900; margin-bottom:8px;">👤 Datos de la persona que recibe:</label>
+                    <input type="text" id="destinatarioNombre" placeholder="Nombre completo de quien recibe *" style="margin-bottom:8px;">
+                    <input type="tel" id="destinatarioTelefono" placeholder="Teléfono de contacto de quien recibe *" style="margin:0;">
+                </div>
+
+                <label>Descripción del paquete o encomienda:</label>
+                <textarea id="cadDescripcion" rows="2" placeholder="Ej: Caja mediana / Documentación..."></textarea>
+
+                <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border);">
+                    <label style="font-size:12px; margin-bottom:6px; color:var(--primary);">🪙 Propina 100% para el cadete:</label>
+                    <div style="display:flex; gap:6px; margin-bottom:10px;">
+                        <button type="button" id="btn-prop-cad-0" class="btn-propina-opcion" onclick="setPropinaCadete(0)">$0</button>
+                        <button type="button" id="btn-prop-cad-35" class="btn-propina-opcion activo" onclick="setPropinaCadete(35)">$35</button>
+                        <button type="button" id="btn-prop-cad-55" class="btn-propina-opcion" onclick="setPropinaCadete(55)">$55</button>
+                    </div>
+                    <input type="number" id="inputPropinaCadete" value="35" min="0" step="5" oninput="actualizarCalculoConMapa()" style="margin:0; padding:8px;">
+                </div>
+
+                <div id="panel-tarifa-cadete" style="background:#F9FAFB; border:1.5px solid var(--card-border); border-radius:var(--radius-md); padding:14px; margin-bottom:16px; font-size:13px;">
+                    📍 Ingresá origen y destino para calcular la distancia y tarifa.
+                </div>
+
+                <button type="button" onclick="solicitarCadeteriaExpressFinal()" style="background:var(--success); font-weight:800;">Solicitar Envío Express</button>
+            `;
+
+            setTimeout(() => {
+                inicializarMapaExpress();
+            }, 300);
+        }
+
+        function inicializarMapaExpress() {
+            if (mapaExpress) {
+                mapaExpress.remove();
+            }
+            mapaExpress = L.map('mapa-express').setView([-34.9011, -56.1645], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap LO TENGO'
+            }).addTo(mapaExpress);
+        }
+
+        function verificarPesoYVehiculo() {
+            let peso = parseFloat(document.getElementById('cadPeso').value) || 0;
+            if (peso > 15) {
+                if (tipoVehiculoCadete !== 'camioneta') {
+                    setVehiculoCadete('camioneta');
+                    showToast("⚠️ Peso mayor a 15 kg: asignado automáticamente a Camioneta", "error");
+                }
+            }
+            actualizarCalculoConMapa();
+        }
+
+        function setVehiculoCadete(tipo) {
+            tipoVehiculoCadete = tipo;
+            document.getElementById('card-moto').classList.toggle('seleccionado', tipo === 'moto');
+            document.getElementById('card-camioneta').classList.toggle('seleccionado', tipo === 'camioneta');
+            actualizarCalculoConMapa();
+        }
+
+        function setPropinaCadete(m) {
+            document.getElementById('inputPropinaCadete').value = m;
+            document.querySelectorAll('[id^="btn-prop-cad-"]').forEach(btn => btn.classList.remove('activo'));
+            let btnActivo = document.getElementById(`btn-prop-cad-${m}`);
+            if (btnActivo) btnActivo.classList.add('activo');
+            actualizarCalculoConMapa();
+        }
+
+        function toggleTresCruces() {
+            let esTC = document.getElementById('checkTresCruces').checked;
+            let dest = document.getElementById('cadDestino');
+            if (esTC) {
+                dest.value = "Terminal Tres Cruces (Agencia de Encomiendas)";
+                dest.disabled = true;
+            } else {
+                dest.value = "";
+                dest.disabled = false;
+            }
+            actualizarCalculoConMapa();
+        }
+
+        function obtenerUbicacionGPSOrigen() {
+            if (navigator.geolocation) {
+                showToast("Obteniendo GPS...");
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    let lat = pos.coords.latitude;
+                    let lon = pos.coords.longitude;
+                    document.getElementById('cadOrigen').value = `GPS (${lat.toFixed(4)}, ${lon.toFixed(4)})`;
+                    
+                    if (mapaExpress) {
+                        if (markerOrigen) mapaExpress.removeLayer(markerOrigen);
+                        markerOrigen = L.marker([lat, lon]).addTo(mapaExpress).bindPopup("Origen (Retiro)").openPopup();
+                        mapaExpress.setView([lat, lon], 14);
+                    }
+                    actualizarCalculoConMapa();
+                    showToast("Ubicación GPS establecida");
+                }, () => showToast("GPS no disponible", "error"));
+            }
+        }
+
+        function actualizarCalculoConMapa() {
+            let origen = document.getElementById('cadOrigen').value.trim();
+            let destino = document.getElementById('cadDestino').value.trim();
+            let panel = document.getElementById('panel-tarifa-cadete');
+            let propina = Number(document.getElementById('inputPropinaCadete').value) || 0;
+
+            if (!origen || !destino) {
+                if (panel) panel.innerHTML = `📍 Completá origen y destino para calcular la distancia y tarifa.`;
+                return;
+            }
+
+            let distanciaKm = 5; 
+            if (origen.toLowerCase().includes('pocitos') && destino.toLowerCase().includes('carrasco')) distanciaKm = 9;
+            else if (origen.toLowerCase().includes('centro') && destino.toLowerCase().includes('tres cruces')) distanciaKm = 3;
+            else if (origen.length > 15 && destino.length > 15) distanciaKm = 6;
+
+            let tarifaBase = tipoVehiculoCadete === 'moto' ? 290 : 550;
+            let kmIncluidos = tipoVehiculoCadete === 'moto' ? 8 : 10;
+            let costoAdicionalKm = 0;
+
+            if (distanciaKm > kmIncluidos) {
+                let kmExtras = distanciaKm - kmIncluidos;
+                costoAdicionalKm = kmExtras * 20;
+            }
+
+            let subtotal = tarifaBase + costoAdicionalKm + propina;
+            let recargoMP = subtotal * 0.07;
+            let tarifaTotalFinal = Math.round((subtotal + recargoMP) * 100) / 100;
+
+            if (panel) {
+                panel.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span>Distancia estimada:</span>
+                        <b>~${distanciaKm} km (${kmIncluidos} km incluidos)</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span>Tarifa Base (${tipoVehiculoCadete}):</span>
+                        <b>$${tarifaBase}</b>
+                    </div>
+                    ${costoAdicionalKm > 0 ? `<div style="display:flex; justify-content:space-between; margin-bottom:4px; color:var(--warning);"><span>Adicional por km extra:</span><b>+$${costoAdicionalKm}</b></div>` : ''}
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <span>Propina cadete:</span>
+                        <b>$${propina}</b>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px; color:var(--text-muted); font-size:12px;">
+                        <span>Recargo Pasarela MP (7%):</span>
+                        <span>$${recargoMP.toFixed(2)}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; font-size:14px; font-weight:900; color:var(--success); border-top:1px solid var(--card-border); padding-top:6px; margin-top:6px;">
+                        <span>Total a abonar:</span>
+                        <span>$${tarifaTotalFinal}</span>
+                    </div>
+                `;
+            }
+        }
+
+        async function solicitarCadeteriaExpressFinal() {
+            let origen = document.getElementById('cadOrigen').value.trim();
+            let destino = document.getElementById('cadDestino').value.trim();
+            let nomRecibe = document.getElementById('destinatarioNombre').value.trim();
+            let telRecibe = document.getElementById('destinatarioTelefono').value.trim();
+            let desc = document.getElementById('cadDescripcion').value.trim();
+            let propina = Number(document.getElementById('inputPropinaCadete').value) || 0;
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
+
+            if (!origen || !destino || !nomRecibe || !telRecibe) {
+                showToast("Completá origen, destino y datos de quien recibe", "error");
+                return;
+            }
+
+            let tarifaBase = tipoVehiculoCadete === 'moto' ? 290 : 550;
+            let kmIncluidos = tipoVehiculoCadete === 'moto' ? 8 : 10;
+            let distanciaKm = 5;
+            let costoAdicionalKm = distanciaKm > kmIncluidos ? (distanciaKm - kmIncluidos) * 20 : 0;
+            let subtotal = tarifaBase + costoAdicionalKm + propina;
+            let recargoMP = subtotal * 0.07;
+            let totalFinal = Math.round((subtotal + recargoMP) * 100) / 100;
+            let pinGenerado = Math.floor(1000 + Math.random() * 9000).toString();
+
+            let nuevoPedido = {
+                id: Date.now(),
+                empresaNombre: `Cadeteria Express (${tipoVehiculoCadete.toUpperCase()})`,
+                cliente: sesion.nombre || 'Cliente Montevideo',
+                telefonoCliente: sesion.telefono || '099000000',
+                direccion: `Origen: ${origen} ➔ Destino: ${destino}`,
+                descripcion: desc || 'Encomienda / Paquete Express',
+                destinatario: nomRecibe,
+                telefonoDestinatario: telRecibe,
+                total: totalFinal,
+                estado: 'Recibido - En espera de cadete',
+                pinSeguridad: pinGenerado
+            };
+
+            let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            pedidosActivos.push(nuevoPedido);
+            localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidosActivos));
+            window.dispatchEvent(new Event('storage'));
+
+            try {
+                await fetch(`${BACKEND_URL}/api/pedidos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(nuevoPedido)
+                });
+            } catch (e) {}
+
+            showToast(`¡Envío Express solicitado! PIN: ${pinGenerado}`);
+            mostrarPedidosActivos();
+        }
+
+        function mostrarPedidosActivos() {
+            actualizarMenuActivo(3);
+            let pedidos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+
+            let contenidoHTML = pedidos.map(p => {
+                let st = p.estado || '';
+                let claseBadge = 'estado-recibido';
+                if (st.includes('Preparación')) claseBadge = 'estado-preparacion';
+                else if (st.includes('camino')) claseBadge = 'estado-camino';
+                else if (st.includes('Entregado')) claseBadge = 'estado-entregado';
+                else if (st.includes('Cancelado')) claseBadge = 'estado-cancelado';
+
+                let itemsTexto = p.items ? p.items.map(i => i.nombre).join(', ') : (p.descripcion || 'Encomienda Express');
+                let esFinalizado = st.toLowerCase().includes('entregado') || st.toLowerCase().includes('cancelado');
+                let puedeCancelar = !esFinalizado && (st.toLowerCase().includes('recibido') || st.toLowerCase().includes('pendiente'));
+
+                return `
+                <div class="comercio-card" style="display:block; border-left: 5px solid ${st.includes('Cancelado') ? 'var(--danger)' : 'var(--primary)'}; margin-bottom: 14px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                        <strong style="color:var(--text-main); font-size:14px; font-weight:900;">Pedido #${p.id ? p.id.toString().slice(-4) : '0000'}</strong>
+                        <span class="badge-estado ${claseBadge}">${st}</span>
+                    </div>
+                    <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">🏪 Servicio: <b>${p.empresaNombre || 'LO TENGO'}</b></p>
+                    <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📍 Destino: <b>${p.direccion || ''}</b></p>
+                    <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📦 ${itemsTexto}</p>
+                    <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">💳 Total: <b>$${p.total || 0}</b></p>
+
+                    ${!esFinalizado && p.pinSeguridad ? `
+                        <div style="background:#FFF7ED; padding:12px; border-radius:var(--radius-md); text-align:center; margin-top:12px; border: 1.5px solid #FDBA74;">
+                            <span style="font-size:12px; color:#C2410C; font-weight:700;">🔑 PIN de seguridad (Entregá al cadete):</span>
+                            <div style="font-size:22px; font-weight:900; color:#C2410C; letter-spacing:2px; margin-top:4px;">${p.pinSeguridad}</div>
+                        </div>
+                    ` : ''}
+
+                    ${puedeCancelar ? `
+                        <div style="margin-top:12px; border-top:1px dashed var(--card-border); padding-top:10px; text-align:right;">
+                            <button type="button" onclick="mostrarModalCancelarPedido('${p.id}')" style="background:var(--danger); font-size:12px; padding:10px 14px; width:auto; display:inline-block; box-shadow:none;">❌ Cancelar Pedido</button>
+                        </div>
+                    ` : ''}
+                </div>
                 `;
             }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">No hay pedidos activos.</p>';
 
+            const container = document.getElementById('main-content');
             if (container) {
                 container.innerHTML = `
                     <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
                     </button>
                     <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">📦 Mis Pedidos y Seguimiento</h3>
-                    <div id="contenedor-cards-pedidos">${html}</div>
+                    <div id="contenedor-cards-pedidos">${contenidoHTML}</div>
                 `;
             }
         }
@@ -928,25 +1066,21 @@ async function solicitarCadeteriaExpressFinal() {
         };
 
         window.cancelarPedidoClientePorMotivo = function(idPedido, motivo) {
-            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            base.forEach(emp => {
-                if (emp.pedidos) {
-                    emp.pedidos.forEach(p => {
-                        if (String(p.id).trim() === String(idPedido).trim()) {
-                            p.estado = `Cancelado por Cliente (${motivo})`;
-                            fetch(`${BACKEND_URL}/api/pedidos`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(p)
-                            }).catch(e => {});
-                        }
-                    });
+            let pedidos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            pedidos.forEach(p => {
+                if (String(p.id).trim() === String(idPedido).trim()) {
+                    p.estado = `Cancelado por Cliente (${motivo})`;
+                    fetch(`${BACKEND_URL}/api/pedidos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(p)
+                    }).catch(e => {});
                 }
             });
-            localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+            localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidos));
             window.dispatchEvent(new Event('storage'));
             showToast("Pedido cancelado", "error");
-            renderizarListaPedidos();
+            mostrarPedidosActivos();
         };
 
         function mostrarPerfilCliente() {
