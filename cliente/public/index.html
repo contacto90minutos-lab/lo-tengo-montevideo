@@ -310,7 +310,7 @@
             inicializarSocketIO();
             verificarSesionCliente();
             configurarEventosLogin();
-            inicializarDatosDemoSiEsNecesario();
+            sincronizarEmpresasDesdeServidor();
             sincronizarPedidosDesdeServidor();
 
             window.addEventListener('storage', () => {
@@ -320,6 +320,7 @@
             });
 
             setInterval(() => {
+                sincronizarEmpresasDesdeServidor();
                 sincronizarPedidosDesdeServidor();
                 if (document.getElementById('contenedor-cards-pedidos')) {
                     renderizarListaPedidos();
@@ -369,6 +370,18 @@
             reader.readAsDataURL(file);
         }
 
+        async function sincronizarEmpresasDesdeServidor() {
+            try {
+                let response = await fetch(`${BACKEND_URL}/api/empresas`);
+                if (response.ok) {
+                    let empresasRemotas = await response.json();
+                    if (empresasRemotas && Array.isArray(empresasRemotas)) {
+                        localStorage.setItem('lt_base_empresas', JSON.stringify(empresasRemotas));
+                    }
+                }
+            } catch(e) {}
+        }
+
         async function sincronizarPedidosDesdeServidor() {
             try {
                 let response = await fetch(`${BACKEND_URL}/api/pedidos`);
@@ -386,25 +399,6 @@
                     }
                 }
             } catch(e) {}
-        }
-
-        function inicializarDatosDemoSiEsNecesario() {
-            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            if (base.length === 0) {
-                base = [{
-                    nombre: "Lo Tengo Central Montevideo",
-                    rut: "219999990012",
-                    telefono: "099000000",
-                    direccion: "Av. 18 de Julio 1300",
-                    giro: "Gastronomía",
-                    pedidos: [],
-                    productos: [
-                        { id: 1, nombre: "Chivito al Plato Clásico", precio: 480, imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80", outlet: false },
-                        { id: 2, nombre: "Empanadas de Carne (Docena)", precio: 520, imagen: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=400&q=80", outlet: true }
-                    ]
-                }];
-                localStorage.setItem('lt_base_empresas', JSON.stringify(base));
-            }
         }
 
         function verificarSesionCliente() {
@@ -522,7 +516,7 @@
                 </div>
 
                 <div class="categorias-grid">
-                    <div class="cat-card" onclick="mostrarHome('Gastronomía')"><div style="font-size:22px;">🍔</div><p style="margin:0; font-size:11px; font-weight:800;">Restaurants</p></div>
+                    <div class="cat-card" onclick="mostrarHome('Gastronomía')"><div style="font-size:22px;">🍔</div><p style="margin:0; font-size:11px; font-weight:800;">Restaurantes</p></div>
                     <div class="cat-card" onclick="mostrarHome('Supermercado')"><div style="font-size:22px;">🛒</div><p style="margin:0; font-size:11px; font-weight:800;">Super</p></div>
                     <div class="cat-card outlet-cat" onclick="mostrarZonaOutlet()"><div style="font-size:22px;">🏷️</div><p style="margin:0; font-size:11px; font-weight:900; color:#7C3AED;">Outlet</p></div>
                     <div class="cat-card" onclick="mostrarHome('Farmacia')"><div style="font-size:22px;">💊</div><p style="margin:0; font-size:11px; font-weight:800;">Farmacia</p></div>
@@ -711,7 +705,6 @@
                 codigoVerificacion: pinGenerado
             };
 
-            // Guardar localmente y sincronizar pedidos activos
             let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
             pedidosActivos.push(nuevoPedido);
             localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidosActivos));
@@ -758,12 +751,12 @@
                     <div id="card-moto" class="vehiculo-card-opcion seleccionado" onclick="setVehiculoCadete('moto')">
                         <div style="font-size:26px; margin-bottom:4px;">🏍️</div>
                         <div style="font-size:14px; font-weight:900;">Moto</div>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $290 (hasta 8km)</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $230 + IVA (hasta 8km)</div>
                     </div>
                     <div id="card-camioneta" class="vehiculo-card-opcion" onclick="setVehiculoCadete('camioneta')">
                         <div style="font-size:26px; margin-bottom:4px;">🚐</div>
                         <div style="font-size:14px; font-weight:900;">Camioneta</div>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $550 (hasta 10km)</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $390 + IVA (hasta 10km)</div>
                     </div>
                 </div>
 
@@ -829,10 +822,10 @@
 
         function verificarPesoYVehiculo() {
             let peso = parseFloat(document.getElementById('cadPeso').value) || 0;
-            if (peso > 15) {
+            if (peso > 25) {
                 if (tipoVehiculoCadete !== 'camioneta') {
                     setVehiculoCadete('camioneta');
-                    showToast("⚠️ Peso mayor a 15 kg: asignado automáticamente a Camioneta", "error");
+                    showToast("⚠️ Peso mayor a 25 kg: asignado automáticamente a Camioneta", "error");
                 }
             }
             actualizarCalculoConMapa();
@@ -901,13 +894,15 @@
             else if (origen.toLowerCase().includes('centro') && destino.toLowerCase().includes('tres cruces')) distanciaKm = 3;
             else if (origen.length > 15 && destino.length > 15) distanciaKm = 6;
 
-            let tarifaBase = tipoVehiculoCadete === 'moto' ? 290 : 550;
+            // Tarifas oficiales correctas LO TENGO
+            let tarifaBase = tipoVehiculoCadete === 'moto' ? 230 : 390;
             let kmIncluidos = tipoVehiculoCadete === 'moto' ? 8 : 10;
             let costoAdicionalKm = 0;
 
             if (distanciaKm > kmIncluidos) {
                 let kmExtras = distanciaKm - kmIncluidos;
-                costoAdicionalKm = kmExtras * 20;
+                let precioKmExtra = tipoVehiculoCadete === 'moto' ? 15 : 20;
+                costoAdicionalKm = kmExtras * precioKmExtra;
             }
 
             let subtotal = tarifaBase + costoAdicionalKm + propina;
@@ -921,7 +916,7 @@
                         <b>~${distanciaKm} km (${kmIncluidos} km incluidos)</b>
                     </div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <span>Tarifa Base (${tipoVehiculoCadete}):</span>
+                        <span>Tarifa Base (${tipoVehiculoCadete}) + IVA:</span>
                         <b>$${tarifaBase}</b>
                     </div>
                     ${costoAdicionalKm > 0 ? `<div style="display:flex; justify-content:space-between; margin-bottom:4px; color:var(--warning);"><span>Adicional por km extra:</span><b>+$${costoAdicionalKm}</b></div>` : ''}
@@ -955,10 +950,11 @@
                 return;
             }
 
-            let tarifaBase = tipoVehiculoCadete === 'moto' ? 290 : 550;
+            let tarifaBase = tipoVehiculoCadete === 'moto' ? 230 : 390;
             let kmIncluidos = tipoVehiculoCadete === 'moto' ? 8 : 10;
             let distanciaKm = 5;
-            let costoAdicionalKm = distanciaKm > kmIncluidos ? (distanciaKm - kmIncluidos) * 20 : 0;
+            let precioKmExtra = tipoVehiculoCadete === 'moto' ? 15 : 20;
+            let costoAdicionalKm = distanciaKm > kmIncluidos ? (distanciaKm - kmIncluidos) * precioKmExtra : 0;
             let subtotal = tarifaBase + costoAdicionalKm + propina;
             let recargoMP = subtotal * 0.07;
             let totalFinal = Math.round((subtotal + recargoMP) * 100) / 100;
@@ -966,6 +962,7 @@
 
             let nuevoPedido = {
                 id: Date.now(),
+                tipoPedido: 'express',
                 empresaNombre: `Cadeteria Express (${tipoVehiculoCadete.toUpperCase()})`,
                 cliente: sesion.nombre || 'Cliente Montevideo',
                 telefonoCliente: sesion.telefono || '099000000',
@@ -1004,15 +1001,27 @@
                 let claseBadge = 'estado-recibido';
                 if (st.includes('Preparación')) claseBadge = 'estado-preparacion';
                 else if (st.includes('camino')) claseBadge = 'estado-camino';
-                else if (st.includes('Entregado')) claseBadge = 'estado-entregado';
+                else if (st.includes('Entregado') || st.includes('Cerrado')) claseBadge = 'estado-entregado';
                 else if (st.includes('Cancelado')) claseBadge = 'estado-cancelado';
 
                 let itemsTexto = p.items ? p.items.map(i => i.nombre).join(', ') : (p.descripcion || 'Encomienda Express');
-                let esFinalizado = st.toLowerCase().includes('entregado') || st.toLowerCase().includes('cancelado');
+                let esFinalizado = st.toLowerCase().includes('entregado') || st.toLowerCase().includes('cerrado') || st.toLowerCase().includes('cancelado');
                 let puedeCancelar = !esFinalizado && (st.toLowerCase().includes('recibido') || st.toLowerCase().includes('pendiente'));
 
+                // GARANTÍA DE RECEPCIÓN: Muestra quién recibió cuando el cadete cierra el envío
+                let infoReceptorHtml = '';
+                if (esFinalizado && (p.receptorInfo || p.estadoReceptor || p.fotoComprobante)) {
+                    let info = p.receptorInfo || {};
+                    infoReceptorHtml = `
+                        <div style="background:#F0FDF4; border:1px solid #10B981; padding:10px; border-radius:8px; margin-top:10px; font-size:12px; color:#047857;">
+                            <b>✅ Garantía de Entrega Exitosa:</b><br>
+                            ${info.nombre ? `Recibió: <b>${info.nombre}</b> (CI: ${info.ci} - Rol: ${info.rol})` : 'Entregado y verificado correctamente.'}
+                        </div>
+                    `;
+                }
+
                 return `
-                <div class="comercio-card" style="display:block; border-left: 5px solid ${st.includes('Cancelado') ? 'var(--danger)' : 'var(--primary)'}; margin-bottom: 14px;">
+                <div class="comercio-card" style="display:block; border-left: 5px solid ${st.includes('Cancelado') ? 'var(--danger)' : (esFinalizado ? 'var(--success)' : 'var(--primary)')}; margin-bottom: 14px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
                         <strong style="color:var(--text-main); font-size:14px; font-weight:900;">Pedido #${p.id ? p.id.toString().slice(-4) : '0000'}</strong>
                         <span class="badge-estado ${claseBadge}">${st}</span>
@@ -1021,6 +1030,8 @@
                     <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📍 Destino: <b>${p.direccion || ''}</b></p>
                     <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📦 ${itemsTexto}</p>
                     <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">💳 Total: <b>$${p.total || 0}</b></p>
+
+                    ${infoReceptorHtml}
 
                     ${!esFinalizado && p.pinSeguridad ? `
                         <div style="background:#FFF7ED; padding:12px; border-radius:var(--radius-md); text-align:center; margin-top:12px; border: 1.5px solid #FDBA74;">
