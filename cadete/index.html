@@ -239,7 +239,6 @@
         .nav-item span { font-size: 16px; margin-bottom: 2px; }
         .nav-item.active { color: var(--secondary); font-weight: bold; }
 
-        /* MODAL / TARJETA FLOTANTE DE OFERTA DE CERCANÍA (MOTOR WEBSOCKET) */
         #modal-oferta-despacho {
             position: fixed;
             top: 0; left: 0; width: 100vw; height: 100vh;
@@ -468,7 +467,6 @@
             configurarEventosLoginCadete();
             sincronizarPedidosDesdeServidor();
 
-            // Geolocalización continua en segundo plano para el motor por cercanía
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(
                     (pos) => {
@@ -491,9 +489,6 @@
             }, 4000);
         });
 
-        // ==========================================
-        // SOCKET.IO - COMUNICACIÓN TIEMPO REAL
-        // ==========================================
         function inicializarSocketIO() {
             socket = io(BACKEND_URL);
 
@@ -505,13 +500,11 @@
                 }
             });
 
-            // Escuchar oferta de pedido cercano (Despacho inteligente)
             socket.on('oferta_envio_cercano', (data) => {
                 ofertaActualWS = data.pedido;
                 mostrarModalOferta(data.pedido, data.tiempoLimiteSec || 30);
             });
 
-            // Notificación de suspensión por rechazos
             socket.on('cuenta_suspendida', (data) => {
                 alert(`⚠️ ATENCIÓN: Tu cuenta ha sido suspendida temporalmente por 1 hora.\n\nMotivo: ${data.motivo}`);
             });
@@ -554,7 +547,6 @@
                 socket.emit('aceptar_oferta_pedido', { pedidoId: ofertaActualWS.id });
                 clearInterval(timerOfertaInterval);
                 document.getElementById('modal-oferta-despacho').style.display = 'none';
-                
                 tomarPedidoCadete(ofertaActualWS.id);
             }
         }
@@ -567,9 +559,6 @@
             }
         }
 
-        // ==========================================
-        // FUNCIONES GENERALES Y UTILIDADES
-        // ==========================================
         function comprimirImagenCadete(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -780,6 +769,7 @@
             return base.find(c => String(c.ci).trim() === String(sesion.ci).trim()) || sesion;
         }
 
+        // UNIFICACIÓN Y CORRECCIÓN DE DATOS (EVITA CRUCE CON COMERCIOS EN EXPRESS)
         function obtenerPedidosDisponiblesGlobales() {
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
             let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
@@ -793,19 +783,31 @@
                             st.includes('listo para retirar') || 
                             st.includes('pago_confirmado') || 
                             st.includes('buscando cadete') || 
-                            st.includes('cadetería')
+                            st.includes('cadetería') ||
+                            st.includes('recibido')
                         );
 
                         if (esPedidoAbierto) {
+                            let tipo = p.tipoPedido;
+                            if (!tipo) {
+                                if (p.esTresCruces || (p.direccion || '').toLowerCase().includes('tres cruces')) tipo = 'tres_cruces';
+                                else if (!p.rutComercio || (p.empresaNombre || '').toLowerCase().includes('cadeteria express')) tipo = 'express';
+                                else tipo = 'comercio';
+                            }
+
+                            let origenText = p.direccionOrigen || (tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[0].replace('Origen:','').trim() : 'Montevideo') : emp.direccion);
+                            let destinoText = tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[1].replace('Destino:','').trim() : p.direccion) : p.direccion;
+                            let nombreComercio = tipo === 'express' ? (p.empresaNombre || 'Cadetería Express Mvd') : (emp.nombre || 'Comercio Aliado');
+
                             listaConsolidada.push({
                                 id: p.id,
-                                tipoPedido: p.tipoPedido || (p.esTresCruces ? 'tres_cruces' : (p.rutComercio ? 'comercio' : 'express')),
-                                comercio: emp.nombre || 'Cadetería Express Mvd',
-                                rutComercio: emp.rut || '000000',
-                                direccionComercio: p.direccionOrigen || (emp.direccion || 'Montevideo Central'),
-                                cliente: p.cliente,
+                                tipoPedido: tipo,
+                                comercio: nombreComercio,
+                                rutComercio: p.rutComercio || emp.rut || '000000',
+                                direccionComercio: origenText,
+                                cliente: p.cliente || 'Cliente Montevideo',
                                 telefonoCliente: p.telefonoCliente || 'Sin tel',
-                                direccionCliente: p.direccion,
+                                direccionCliente: destinoText,
                                 total: p.total,
                                 gananciaCadete: p.gananciaCadete || Math.round((p.total || 200) * 0.7),
                                 pinSeguridad: p.pinSeguridad || p.codigoVerificacion,
@@ -845,7 +847,7 @@
                 <div style="background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--secondary); border-radius: var(--radius); padding: 15px; margin-bottom: 15px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <strong style="color: var(--secondary); font-size: 16px;">📦 Pedido #${p.id.toString().slice(-4)}</strong>
-                        <span style="font-size: 12px; font-weight:bold; color:var(--success);">+$${p.gananciaCadete}</span>
+                        <span style="font-size: 13px; font-weight:bold; color:var(--success);">+$${p.gananciaCadete}</span>
                     </div>
                     <p style="margin: 6px 0 2px 0; font-size: 13px;">🏪 <b>Origen:</b> ${p.comercio}</p>
                     <p style="margin: 2px 0; font-size: 13px; color:#555;">📍 <b>Retiro:</b> ${p.direccionComercio}</p>
@@ -878,7 +880,8 @@
             let itemACopiar = disponibles.find(p => String(p.id).trim() === String(idPedido).trim());
 
             if (itemACopiar) {
-                itemACopiar.estado = 'En camino a retirar';
+                // Estado inicial del ciclo de trabajo
+                itemACopiar.estado = 'En camino a origen';
                 itemACopiar.cadeteAsignado = sesion.nombre;
                 itemACopiar.ciCadete = sesion.ci;
                 
@@ -893,7 +896,7 @@
         };
 
         // ==========================================
-        // PESTAÑA 2: EN CURSO (SISTEMA DINÁMICO DE VALIDACIÓN)
+        // PESTAÑA 2: EN CURSO (ESTADOS SECUENCIALES)
         // ==========================================
         function mostrarEnCursoCadete() {
             actualizarMenuActivoCadete(1);
@@ -906,6 +909,8 @@
 
             const container = document.getElementById('main-content-cadete');
             let htmlCurso = enCurso.map(p => {
+                let faseActual = p.estado || 'En camino a origen';
+                let esFaseOrigen = faseActual.includes('origen') || faseActual.includes('retirar');
                 let esTresCruces = p.tipoPedido === 'tres_cruces' || (p.direccionCliente || '').toLowerCase().includes('tres cruces');
                 let esExpressAB = p.tipoPedido === 'express' || (!p.rutComercio && !esTresCruces);
 
@@ -913,53 +918,65 @@
                 <div style="background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: var(--radius); padding: 15px; margin-bottom: 15px;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
                         <strong style="color: var(--primary); font-size: 16px;">🛵 Pedido #${p.id.toString().slice(-4)}</strong>
-                        <span style="font-size: 11px; background:#eef2f6; padding:4px 8px; border-radius:6px; font-weight:bold;">${p.estado}</span>
+                        <span style="font-size: 11px; background:#eef2f6; padding:4px 8px; border-radius:6px; font-weight:bold; color:var(--secondary);">${faseActual}</span>
                     </div>
-                    
-                    <p style="margin: 6px 0 2px 0; font-size: 13px;">🏪 <b>Retirar en:</b> ${p.comercio || 'Origen'} (${p.direccionComercio || 'Montevideo'})</p>
-                    <p style="margin: 2px 0; font-size: 13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || 'Sin tel'})</p>
-                    <p style="margin: 2px 0 10px 0; font-size: 13px;">📍 <b>Destino:</b> ${p.direccionCliente}</p>
 
-                    <a href="https://wa.me/598${p.telefonoCliente || '99000000'}?text=${encodeURIComponent('Hola ' + p.cliente + ', soy tu cadete de Lo Tengo. Voy en camino con tu pedido.')}" target="_blank" class="btn-whatsapp" style="text-decoration:none; color:white; padding:8px 10px; border-radius:8px; font-size:12px; font-weight:bold; text-align:center;">
-                        💬 Abrir WhatsApp con el Cliente
-                    </a>
+                    ${esFaseOrigen ? `
+                        <!-- FASE 1: EN CAMINO A ORIGEN -->
+                        <div style="background:#fdf8f6; border:1.5px dashed var(--secondary); padding:12px; border-radius:10px; margin-top:10px;">
+                            <p style="margin: 0 0 4px 0; font-size: 12px; font-weight:bold; color:var(--secondary);">📍 TRAMO 1: RETIRO EN ORIGEN</p>
+                            <p style="margin: 4px 0; font-size: 14px;">🏪 <b>Retirar en:</b> ${p.comercio || 'Origen'}</p>
+                            <p style="margin: 2px 0 10px 0; font-size: 13px; color:#555;">📍 <b>Dirección:</b> ${p.direccionComercio || 'Montevideo'}</p>
 
-                    <!-- PANEL DINÁMICO DE CIERRE SEGÚN TIPO DE ENVÍO -->
-                    <div style="background:#f8f9fa; border:1.5px solid var(--primary); padding:12px; border-radius:12px; margin-top:12px;">
-                        
-                        ${esTresCruces ? `
-                            <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">🏢 DESPACHO TERMINAL TRES CRUCES</label>
-                            <p style="margin:0 0 8px 0; font-size:11px; color:#666;">Adjuntá foto clara del remito o comprobante de la agencia de transporte:</p>
-                            
-                            <input type="file" accept="image/*" capture="environment" onchange="comprimirFotoRemito(event, '${p.id}')" style="font-size:12px; margin-bottom:6px;">
-                            <img id="prev-remito-${p.id}" style="width:100%; max-height:150px; object-fit:cover; border-radius:8px; display:none; margin-bottom:8px; border:1px solid var(--border);">
-                            
-                            <button type="button" onclick="finalizarEntregaTresCruces('${p.id}')" style="background:var(--success);">📷 Confirmar Entrega con Remito</button>
+                            <button type="button" onclick="avanzarAEnCaminoDestino('${p.id}')" style="background: var(--secondary);">📦 Ya retiré / Recibí el paquete</button>
+                        </div>
+                    ` : `
+                        <!-- FASE 2: EN CAMINO A DESTINO -->
+                        <div style="background:#f0fdf4; border:1.5px solid var(--success); padding:12px; border-radius:10px; margin-top:10px;">
+                            <p style="margin: 0 0 4px 0; font-size: 12px; font-weight:bold; color:var(--success);">📍 TRAMO 2: ENTREGA A DESTINO</p>
+                            <p style="margin: 4px 0; font-size: 13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || 'Sin tel'})</p>
+                            <p style="margin: 2px 0 10px 0; font-size: 13px;">📍 <b>Destino:</b> ${p.direccionCliente}</p>
 
-                        ` : esExpressAB ? `
-                            <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">📦 RECEPCIÓN EXPRESS PUNTO A ➔ B</label>
-                            <p style="margin:0 0 6px 0; font-size:11px; color:#666;">Seleccioná quién recibe e ingresá sus datos:</p>
-                            
-                            <div style="display:flex; flex-wrap:wrap; margin-bottom:8px;">
-                                <button type="button" class="btn-rol-receptor activo" onclick="seleccionarRolReceptor(this, '${p.id}', 'Titular')">🏠 Titular</button>
-                                <button type="button" class="btn-rol-receptor" onclick="seleccionarRolReceptor(this, '${p.id}', 'Portería / Recepción')">🏢 Portería</button>
-                                <button type="button" class="btn-rol-receptor" onclick="seleccionarRolReceptor(this, '${p.id}', 'Familiar')">👨‍👩‍👧 Pariente</button>
-                                <button type="button" class="btn-rol-receptor" onclick="seleccionarRolReceptor(this, '${p.id}', 'Vecino')">🚪 Vecino</button>
+                            <a href="https://wa.me/598${p.telefonoCliente || '99000000'}?text=${encodeURIComponent('Hola ' + p.cliente + ', soy tu cadete de Lo Tengo. Voy en camino con tu pedido.')}" target="_blank" class="btn-whatsapp" style="text-decoration:none; color:white; padding:8px 10px; border-radius:8px; font-size:12px; font-weight:bold; text-align:center; margin-bottom:10px;">
+                                💬 Abrir WhatsApp con el Cliente
+                            </a>
+
+                            <!-- PANEL DINÁMICO DE CIERRE -->
+                            <div style="background:#ffffff; border:1px solid var(--border); padding:10px; border-radius:8px;">
+                                ${esTresCruces ? `
+                                    <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">🏢 DESPACHO TERMINAL TRES CRUCES</label>
+                                    <p style="margin:0 0 8px 0; font-size:11px; color:#666;">Adjuntá foto clara del remito o comprobante de la agencia de transporte:</p>
+                                    
+                                    <input type="file" accept="image/*" capture="environment" onchange="comprimirFotoRemito(event, '${p.id}')" style="font-size:12px; margin-bottom:6px;">
+                                    <img id="prev-remito-${p.id}" style="width:100%; max-height:150px; object-fit:cover; border-radius:8px; display:none; margin-bottom:8px; border:1px solid var(--border);">
+                                    
+                                    <button type="button" onclick="finalizarEntregaTresCruces('${p.id}')" style="background:var(--success);">📷 Confirmar Entrega con Remito</button>
+
+                                ` : esExpressAB ? `
+                                    <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">📦 RECEPCIÓN EXPRESS PUNTO A ➔ B</label>
+                                    <p style="margin:0 0 6px 0; font-size:11px; color:#666;">Seleccioná quién recibe e ingresá sus datos:</p>
+                                    
+                                    <div style="display:flex; flex-wrap:wrap; margin-bottom:8px;">
+                                        <button type="button" class="btn-rol-receptor activo" onclick="seleccionarRolReceptor(this, '${p.id}', 'Titular')">🏠 Titular</button>
+                                        <button type="button" class="btn-rol-receptor" onclick="seleccionarRolReceptor(this, '${p.id}', 'Portería / Recepción')">🏢 Portería</button>
+                                        <button type="button" class="btn-rol-receptor" onclick="seleccionarRolReceptor(this, '${p.id}', 'Familiar')">👨‍👩‍👧 Pariente</button>
+                                        <button type="button" class="btn-rol-receptor" onclick="seleccionarRolReceptor(this, '${p.id}', 'Vecino')">🚪 Vecino</button>
+                                    </div>
+                                    <input type="hidden" id="rol-receptor-${p.id}" value="Titular">
+
+                                    <input type="text" id="nombre-receptor-${p.id}" placeholder="Nombre de quien recibe *" style="margin-bottom:6px; font-size:13px;">
+                                    <input type="text" id="ci-receptor-${p.id}" placeholder="Cédula (CI) de quien recibe *" style="margin-bottom:8px; font-size:13px;">
+
+                                    <button type="button" onclick="finalizarEntregaExpress('${p.id}')" style="background:var(--success);">✍️ Registrar Recepción y Cerrar</button>
+
+                                ` : `
+                                    <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">🔑 VERIFICAR PIN DE CLIENTE (4 Dígitos)</label>
+                                    <input type="text" id="pin-ingresado-${p.id}" placeholder="PIN de 4 dígitos" style="margin-bottom:6px; text-align:center; font-size:18px; letter-spacing:3px; font-weight:bold;">
+                                    <button type="button" onclick="finalizarEntregaPin('${p.id}')" style="background:var(--success);">✅ Confirmar Entrega</button>
+                                `}
                             </div>
-                            <input type="hidden" id="rol-receptor-${p.id}" value="Titular">
-
-                            <input type="text" id="nombre-receptor-${p.id}" placeholder="Nombre de quien recibe *" style="margin-bottom:6px; font-size:13px;">
-                            <input type="text" id="ci-receptor-${p.id}" placeholder="Cédula (CI) de quien recibe *" style="margin-bottom:8px; font-size:13px;">
-
-                            <button type="button" onclick="finalizarEntregaExpress('${p.id}')" style="background:var(--success);">✍️ Registrar Recepción y Cerrar</button>
-
-                        ` : `
-                            <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">🔑 VERIFICAR PIN DE CLIENTE (4 Dígitos)</label>
-                            <input type="text" id="pin-ingresado-${p.id}" placeholder="PIN de 4 dígitos" style="margin-bottom:6px; text-align:center; font-size:18px; letter-spacing:3px; font-weight:bold;">
-                            <button type="button" onclick="finalizarEntregaPin('${p.id}')" style="background:var(--success);">✅ Confirmar Entrega</button>
-                        `}
-
-                    </div>
+                        </div>
+                    `}
                 </div>
             `}).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No tenés pedidos en curso actualmente.</p>';
 
@@ -973,6 +990,17 @@
                 ${htmlCurso}
             `;
         }
+
+        window.avanzarAEnCaminoDestino = function(idPedido) {
+            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            let p = pedidosCadete.find(x => String(x.id).trim() === String(idPedido).trim());
+            if (p) {
+                p.estado = 'En camino a destino';
+                localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+            }
+            reproducirAlertaVoz("Paquete retirado. En camino a destino");
+            mostrarEnCursoCadete();
+        };
 
         window.seleccionarRolReceptor = function(btn, idPedido, rol) {
             let contenedor = btn.parentElement;
@@ -992,9 +1020,8 @@
                     pedidoId: idPedido,
                     pinIngresado: pinVal
                 });
-            } else {
-                procesarCierreLocal(idPedido);
             }
+            procesarCierreLocal(idPedido);
         };
 
         window.finalizarEntregaExpress = function(idPedido) {
