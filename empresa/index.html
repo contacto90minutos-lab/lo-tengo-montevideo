@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LO TENGO - Empresas / Comercios</title>
+    <!-- Cliente Socket.io para comunicación en tiempo real -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         :root {
             --primary: #002855;
@@ -28,7 +30,6 @@
             overflow-x: hidden;
         }
 
-        /* Sistema de Toasts Elegantes */
         #toast-container {
             position: fixed;
             top: 20px;
@@ -65,59 +66,31 @@
             100% { opacity: 0; transform: translateY(-10px); }
         }
 
-        /* Splash Screen Animado Minimalista */
         #splash-screen {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            top: 0; left: 0; width: 100vw; height: 100vh;
             background: #002855;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 9999;
             transition: opacity 0.5s ease, visibility 0.5s ease;
         }
 
         .splash-logo-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            display: flex; align-items: center; gap: 12px;
             animation: logoScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .splash-isologo {
-            width: 54px;
-            height: 54px;
+            width: 54px; height: 54px;
             background: linear-gradient(135deg, #E85B04, #ff8533);
             border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFFFFF;
-            font-weight: 900;
-            font-size: 26px;
-            letter-spacing: -1px;
+            display: flex; align-items: center; justify-content: center;
+            color: #FFFFFF; font-weight: 900; font-size: 26px; letter-spacing: -1px;
             box-shadow: 0 10px 25px rgba(232, 91, 4, 0.4);
         }
 
-        .splash-texto {
-            color: #FFFFFF;
-            font-size: 28px;
-            font-weight: 900;
-            letter-spacing: -1px;
-        }
-
-        .splash-sub {
-            color: #9CA3AF;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            margin-top: 14px;
-            text-transform: uppercase;
-        }
+        .splash-texto { color: #FFFFFF; font-size: 28px; font-weight: 900; letter-spacing: -1px; }
+        .splash-sub { color: #9CA3AF; font-size: 11px; font-weight: 700; letter-spacing: 2px; margin-top: 14px; text-transform: uppercase; }
 
         @keyframes logoScale {
             0% { opacity: 0; transform: scale(0.8); }
@@ -126,221 +99,79 @@
 
         #app-container {
             background: #ffffff;
-            width: 100%;
-            max-width: 480px;
-            min-height: 100vh;
+            width: 100%; max-width: 480px; min-height: 100vh;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
             box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            position: relative;
+            display: flex; flex-direction: column; position: relative;
         }
 
         .header-app {
-            background: var(--primary);
-            color: white;
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom-left-radius: 20px;
-            border-bottom-right-radius: 20px;
+            background: var(--primary); color: white; padding: 15px 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom-left-radius: 20px; border-bottom-right-radius: 20px;
         }
 
         .header-app h1 {
-            margin: 0;
-            font-size: 20px;
-            letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            margin: 0; font-size: 20px; letter-spacing: 0.5px;
+            display: flex; align-items: center; gap: 8px;
         }
 
         .brand-badge {
-            background: var(--secondary);
-            color: #fff;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 900;
+            background: var(--secondary); color: #fff;
+            width: 28px; height: 28px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 900;
         }
 
-        .content-body {
-            padding: 15px;
-            flex: 1;
-            overflow-y: auto;
-            padding-bottom: 90px;
-        }
+        .content-body { padding: 15px; flex: 1; overflow-y: auto; padding-bottom: 90px; }
 
         input, select, textarea {
-            width: 100%;
-            padding: 12px;
-            margin: 6px 0 12px 0;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            box-sizing: border-box;
-            font-size: 14px;
-            background: #fff;
+            width: 100%; padding: 12px; margin: 6px 0 12px 0;
+            border: 1px solid var(--border); border-radius: 10px;
+            box-sizing: border-box; font-size: 14px; background: #fff;
         }
 
         button {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-weight: bold;
-            cursor: pointer;
-            font-size: 14px;
-            transition: opacity 0.2s;
+            width: 100%; padding: 12px; background-color: var(--primary); color: white;
+            border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; transition: opacity 0.2s;
         }
-
         button:hover { opacity: 0.9; }
 
-        .link-btn {
-            background: none;
-            color: var(--primary);
-            border: none;
-            text-decoration: underline;
-            cursor: pointer;
-            margin-top: 10px;
-            font-size: 13px;
-        }
+        .link-btn { background: none; color: var(--primary); border: none; text-decoration: underline; cursor: pointer; margin-top: 10px; font-size: 13px; }
 
         .btn-volver-atras {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: #FFFFFF;
-            color: var(--primary);
-            border: 1.5px solid var(--border);
-            padding: 10px 16px;
-            font-size: 13px;
-            font-weight: 700;
-            border-radius: var(--radius);
-            cursor: pointer;
-            width: auto;
-            box-shadow: var(--shadow-subtle);
-            margin-bottom: 16px;
-            transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 8px;
+            background: #FFFFFF; color: var(--primary); border: 1.5px solid var(--border);
+            padding: 10px 16px; font-size: 13px; font-weight: 700; border-radius: var(--radius);
+            cursor: pointer; width: auto; box-shadow: var(--shadow-subtle); margin-bottom: 16px; transition: all 0.2s;
         }
         .btn-volver-atras:hover { background: #F3F4F6; border-color: var(--secondary); transform: translateY(-1px); }
 
         .gestion-card {
-            background: #fff;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 12px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            background: #fff; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            display: flex; align-items: center; gap: 12px;
         }
 
-        .gestion-avatar {
-            width: 55px;
-            height: 55px;
-            border-radius: 10px;
-            object-fit: cover;
-            background: #eef2f6;
-            flex-shrink: 0;
-        }
-
-        .badge-outlet {
-            background: var(--secondary);
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .badge-destacado {
-            background: #7C3AED;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-        }
-
-        .badge-vehiculo {
-            background: #0284C7;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 10px;
-            font-weight: bold;
-        }
+        .gestion-avatar { width: 55px; height: 55px; border-radius: 10px; object-fit: cover; background: #eef2f6; flex-shrink: 0; }
+        .badge-outlet { background: var(--secondary); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .badge-destacado { background: #7C3AED; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
 
         .section-title {
-            font-size: 16px;
-            font-weight: 800;
-            color: var(--primary);
-            margin: 0 0 12px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        /* Sistema de Columnas para Cocina / Tablero */
-        .kanban-columns {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        .kanban-column {
-            background: #f8f9fa;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            padding: 12px;
-        }
-        .kanban-column-title {
-            font-size: 14px;
-            font-weight: 900;
-            margin: 0 0 10px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 6px;
-            border-bottom: 2px solid var(--border);
+            font-size: 16px; font-weight: 800; color: var(--primary); margin: 0 0 12px 0;
+            display: flex; justify-content: space-between; align-items: center;
         }
 
         .bottom-nav {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: #ffffff;
-            border-top: 1px solid var(--border);
-            display: flex;
-            justify-content: space-around;
-            padding: 8px 0;
-            box-sizing: border-box;
-            border-top-left-radius: 20px;
-            border-top-right-radius: 20px;
-            box-shadow: 0 -4px 10px rgba(0,0,0,0.03);
-            z-index: 10;
+            position: absolute; bottom: 0; left: 0; width: 100%; background: #ffffff;
+            border-top: 1px solid var(--border); display: flex; justify-content: space-around;
+            padding: 8px 0; box-sizing: border-box; border-top-left-radius: 20px; border-top-right-radius: 20px;
+            box-shadow: 0 -4px 10px rgba(0,0,0,0.03); z-index: 10;
         }
 
         .nav-item {
-            background: none;
-            border: none;
-            color: #666;
-            font-size: 10px;
-            cursor: pointer;
-            width: auto;
-            padding: 0;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            background: none; border: none; color: #666; font-size: 10px; cursor: pointer;
+            width: auto; padding: 0; margin: 0; display: flex; flex-direction: column; align-items: center;
         }
         .nav-item span { font-size: 16px; margin-bottom: 2px; }
         .nav-item.active { color: var(--secondary); font-weight: bold; }
@@ -350,7 +181,6 @@
 
     <div id="toast-container"></div>
 
-    <!-- Splash Screen Animado Minimalista -->
     <div id="splash-screen">
         <div class="splash-logo-container">
             <div class="splash-isologo">L+T</div>
@@ -360,15 +190,13 @@
     </div>
 
     <div id="app-container">
-        <!-- Header -->
         <div class="header-app">
             <h1><div class="brand-badge">L+T</div><span style="color:var(--secondary);">LO</span> TENGO <small style="font-size:11px; opacity:0.8;">[Empresas]</small></h1>
             <span id="header-empresa-info" style="font-size: 11px; opacity: 0.9;">Panel Comercio</span>
         </div>
         
-        <!-- Contenedor Principal -->
         <div class="content-body" id="main-content-empresa">
-            <!-- Login de Empresas -->
+            <!-- Login -->
             <div id="screen-login-empresa">
                 <h3 style="color: var(--primary); margin-top: 0;">Acceso Comercios</h3>
                 <label style="font-size: 12px; color: #555;">RUT de la Empresa:</label>
@@ -390,7 +218,7 @@
                 </div>
             </div>
 
-            <!-- Registro de Empresas -->
+            <!-- Registro -->
             <div id="screen-registro-empresa" style="display: none;">
                 <button type="button" class="btn-volver-atras" onclick="irLoginEmpresa()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al login
@@ -411,7 +239,11 @@
                 </select>
 
                 <label>Logo de la Empresa:</label>
-                <input type="file" id="regEmpLogoFile" accept="image/*" capture="environment">
+                <input type="file" id="regEmpLogoFile" accept="image/*" onchange="comprimirImagenLocal(event, 'regLogoBase64', 'prevLogoImg')">
+                <input type="hidden" id="regLogoBase64">
+                <div id="prevLogoContainer" style="display:none; text-align:center; margin-bottom:12px;">
+                    <img id="prevLogoImg" style="width:60px; height:60px; border-radius:50%; object-fit:cover; border:2px solid var(--secondary);">
+                </div>
 
                 <label>Teléfono de Contacto:</label>
                 <input type="tel" id="regEmpTel" placeholder="099123456">
@@ -423,20 +255,20 @@
             </div>
         </div>
 
-        <!-- Barra de Navegación Inferior -->
         <div class="bottom-nav" id="bottom-nav-empresa" style="display: none;">
             <button class="nav-item active" onclick="mostrarDashboardEmpresa()"><span>📊</span>Dash</button>
             <button class="nav-item" onclick="mostrarGestionCatalogo()"><span>📦</span>Catálogo</button>
-            <button class="nav-item" onclick="mostrarPedidosEntrantesComercio()"><span>🛎️</span>Cocina <span id="badge-pedidos-count" style="background:var(--secondary); color:white; border-radius:50%; padding:1px 4px; font-size:8px; display:inline-block; vertical-align:top; margin-left:1px;">0</span></button>
+            <button class="nav-item" onclick="mostrarPedidosEntrantesComercio()"><span id="icon-tab-pedidos">🛎️</span><span id="label-tab-pedidos">Pedidos</span> <span id="badge-pedidos-count" style="background:var(--secondary); color:white; border-radius:50%; padding:1px 4px; font-size:8px; display:inline-block; vertical-align:top; margin-left:1px;">0</span></button>
             <button class="nav-item" onclick="mostrarPedidosEnRutaComercio()"><span>🛵</span>Envíos</button>
             <button class="nav-item" onclick="mostrarHistorialFinancieroComercio()"><span>💰</span>Historial</button>
+            <button class="nav-item" onclick="mostrarPerfilEmpresa()"><span>👤</span>Perfil</button>
             <button class="nav-item" onclick="cerrarSesionEmpresa()"><span>🚪</span>Salir</button>
         </div>
     </div>
-
-    <!-- Script Sincronizado -->
     <script>
-        const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
+        const BACKEND_URL = window.location.origin.includes('localhost') ? "http://localhost:3000" : window.location.origin;
+        let socket = null;
+        let ultimoConteoPedidos = 0;
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -448,33 +280,63 @@
             setTimeout(() => { toast.remove(); }, 3500);
         }
 
-        let temporizadoresGlobales = {};
-        let ultimoConteoPedidos = 0;
+        function comprimirImagenLocal(event, hiddenInputId, previewImgId) {
+            const file = event.target.files[0];
+            if (!file) return;
 
-        document.addEventListener("DOMContentLoaded", async () => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 400;
+                    const MAX_HEIGHT = 400;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    document.getElementById(hiddenInputId).value = compressedBase64;
+                    let prev = document.getElementById(previewImgId);
+                    if (prev) {
+                        prev.src = compressedBase64;
+                        prev.parentElement.style.display = 'block';
+                    }
+                    showToast("Imagen optimizada correctamente");
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
             setTimeout(() => {
                 const splash = document.getElementById('splash-screen');
                 if (splash) {
                     splash.style.opacity = '0';
                     splash.style.visibility = 'hidden';
                 }
-            }, 1500);
+            }, 1200);
 
+            inicializarSocketIO();
             inicializarBaseDatosEmpresasPorDefecto();
-            await sincronizarPedidosDesdeServidor();
             verificarSesionEmpresa();
             configurarEventosLoginEmpresa();
+            sincronizarPedidosDesdeServidor();
             
-            setInterval(async () => {
-                await sincronizarPedidosDesdeServidor();
-                let sesion = localStorage.getItem('lt_sesion_empresa');
-                if (sesion) {
-                    let empActual = obtenerEmpresaActualizada();
-                    if (empActual) {
-                        actualizarContadorPedidosBadge(empActual.rut);
-                    }
-                }
-            }, 2000);
+            setInterval(() => {
+                sincronizarPedidosDesdeServidor();
+            }, 3000);
 
             window.addEventListener('storage', () => {
                 let emp = obtenerEmpresaActualizada();
@@ -485,12 +347,31 @@
                         mostrarPedidosEntrantesComercio();
                     } else if (contenedor && document.getElementById('bandera-vista-envios')) {
                         mostrarPedidosEnRutaComercio();
-                    } else if (contenedor && document.getElementById('main-content-empresa') && !document.getElementById('screen-login-empresa')) {
-                        mostrarDashboardEmpresa();
                     }
                 }
             });
         });
+
+        function inicializarSocketIO() {
+            socket = io(BACKEND_URL);
+            socket.on('connect', () => {
+                console.log("⚡ Empresa conectada al WebSocket LO TENGO");
+            });
+
+            socket.on('nuevo_pedido_servidor', (pedido) => {
+                let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
+                // Verificar estrictamente que el pedido pertenezca a ESTE comercio y NO sea Express A-B / Tres Cruces
+                if (sesion && pedido.rutComercio && String(pedido.rutComercio).trim() === String(sesion.rut).trim()) {
+                    reproducirChicharraAlerta();
+                    showToast("🛎️ ¡Nuevo pedido recibido!");
+                    sincronizarPedidosDesdeServidor();
+                }
+            });
+
+            socket.on('actualizacion_pedido', () => {
+                sincronizarPedidosDesdeServidor();
+            });
+        }
 
         async function sincronizarPedidosDesdeServidor() {
             try {
@@ -508,10 +389,9 @@
                                 
                                 let nuevosEntrantes = 0;
                                 pedidosRemotos.forEach(pR => {
-                                    if (String(pR.rutComercio || '').trim() === String(emp.rut).trim()) {
-                                        if (!mapaLocal.has(String(pR.id).trim())) {
-                                            nuevosEntrantes++;
-                                        }
+                                    // FILTRO ESTRICTO: Solo pedidos del catálogo de ESTE comercio (Excluye Express A->B y Tres Cruces)
+                                    if (pR.rutComercio && String(pR.rutComercio).trim() === String(emp.rut).trim()) {
+                                        if (!mapaLocal.has(String(pR.id).trim())) nuevosEntrantes++;
                                         mapaLocal.set(String(pR.id).trim(), pR);
                                     }
                                 });
@@ -526,7 +406,7 @@
                                 }).length;
 
                                 if (pendientesActuales > ultimoConteoPedidos && nuevosEntrantes > 0) {
-                                    reproducirAlertaNuevaComanda();
+                                    reproducirChicharraAlerta();
                                 }
                                 ultimoConteoPedidos = pendientesActuales;
                                 actualizarContadorPedidosBadge(emp.rut);
@@ -537,16 +417,23 @@
             } catch (e) {}
         }
 
-        function reproducirAlertaNuevaComanda() {
+        function reproducirChicharraAlerta() {
             try {
-                if ('speechSynthesis' in window) {
-                    window.speechSynthesis.cancel();
-                    let utterance = new SpeechSynthesisUtterance("¡Nuevo pedido recibido en cocina!");
-                    utterance.lang = 'es-UY';
-                    utterance.rate = 1.0;
-                    window.speechSynthesis.speak(utterance);
-                }
-            } catch (err) {}
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.8);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.8);
+            } catch(e) {}
         }
 
         function inicializarBaseDatosEmpresasPorDefecto() {
@@ -562,8 +449,8 @@
                         direccion: 'Av. 18 de Julio 1300',
                         password: '123',
                         productos: [
-                            { id: 101, nombre: "Chivito al Plato Clásico", precio: 480, vehiculoRequerido: "moto", imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80", outlet: false, destacado: true },
-                            { id: 102, nombre: "Empanadas de Carne (Docena)", precio: 520, vehiculoRequerido: "moto", imagen: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=400&q=80", outlet: true, destacado: false }
+                            { id: 101, nombre: "Chivito al Plato Clásico", precio: 480, imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80", outlet: false, destacado: true },
+                            { id: 102, nombre: "Empanadas de Carne (Docena)", precio: 520, imagen: "https://images.unsplash.com/photo-1608897013039-887f21d8c804?auto=format&fit=crop&w=400&q=80", outlet: true, destacado: false }
                         ],
                         pedidos: []
                     }
@@ -581,10 +468,25 @@
                     if (empresaReal) {
                         document.getElementById('header-empresa-info').innerText = empresaReal.nombre;
                         document.getElementById('bottom-nav-empresa').style.display = 'flex';
+                        actualizarTextosNavSegunGiro(empresaReal.giro);
                         actualizarContadorPedidosBadge(empresaReal.rut);
                         mostrarDashboardEmpresa();
                     }
                 } catch (e) {}
+            }
+        }
+
+        function actualizarTextosNavSegunGiro(giro) {
+            let labelPedidos = document.getElementById('label-tab-pedidos');
+            let iconPedidos = document.getElementById('icon-tab-pedidos');
+            if (labelPedidos && iconPedidos) {
+                if (giro === 'Gastronomía') {
+                    labelPedidos.innerText = 'Cocina';
+                    iconPedidos.innerText = '🍳';
+                } else {
+                    labelPedidos.innerText = 'Pedidos';
+                    iconPedidos.innerText = '🛎️';
+                }
             }
         }
 
@@ -606,9 +508,7 @@
             }
 
             const btnIng = document.getElementById('btnIngresarEmpresa');
-            if (btnIng) {
-                btnIng.onclick = ejecutarLoginEmpresa;
-            }
+            if (btnIng) btnIng.onclick = ejecutarLoginEmpresa;
         }
 
         async function ejecutarLoginEmpresa() {
@@ -616,35 +516,24 @@
             const passInput = document.getElementById('loginPassEmpresa').value.trim();
             const recordar = document.getElementById('recordarUsuarioEmpresa').checked;
 
-            if (!rutInput || !passInput) { showToast("Ingresá tu RUT y contraseña.", "error"); return; }
+            if (!rutInput || !passInput) {
+                showToast("Ingresá RUT y contraseña", "error");
+                return;
+            }
 
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => String(e.rut).trim() === rutInput && String(e.password || '123').trim() === passInput);
 
             if (!emp) {
-                if (rutInput === '219999990012' && passInput === '123') {
-                    inicializarBaseDatosEmpresasPorDefecto();
-                    base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-                    emp = base.find(e => String(e.rut).trim() === '219999990012');
-                } else {
-                    showToast("RUT o contraseña incorrectos.", "error");
-                    return;
-                }
+                showToast("RUT o contraseña incorrectos", "error");
+                return;
             }
 
             if (recordar) localStorage.setItem('lt_recordar_rut_empresa', rutInput);
             else localStorage.removeItem('lt_recordar_rut_empresa');
 
-            try {
-                await fetch(`${BACKEND_URL}/api/usuarios/registro`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rol: 'empresa', nombre: emp.nombre, identificador: emp.rut, giroComercial: emp.giro })
-                });
-            } catch(e) {}
-
             localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
-            showToast("¡Sesión iniciada con éxito!");
+            showToast("Sesión iniciada");
             setTimeout(() => location.reload(), 800);
         }
 
@@ -655,38 +544,19 @@
             let telefono = document.getElementById('regEmpTel').value.trim();
             let direccion = document.getElementById('regEmpDir').value.trim();
             let password = document.getElementById('regEmpPass').value.trim();
-            let fileInput = document.getElementById('regEmpLogoFile');
+            let logo = document.getElementById('regLogoBase64').value || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80';
 
-            if (!nombre || !rut || !password) { showToast("Completá los campos obligatorios.", "error"); return; }
+            if (!nombre || !rut || !password) { showToast("Completá los campos obligatorios", "error"); return; }
 
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            if (base.some(e => String(e.rut).trim() === rut)) { showToast("Ya existe un local con este RUT.", "error"); return; }
+            if (base.some(e => String(e.rut).trim() === rut)) { showToast("Ya existe un local con este RUT", "error"); return; }
 
-            if (fileInput.files && fileInput.files[0]) {
-                let reader = new FileReader();
-                reader.onload = function(e) {
-                    guardarEmpresaConLogo(base, { rut, nombre, giro, logo: e.target.result, telefono, direccion, password, productos: [], pedidos: [] });
-                };
-                reader.readAsDataURL(fileInput.files[0]);
-            } else {
-                guardarEmpresaConLogo(base, { rut, nombre, giro, logo: '', telefono, direccion, password, productos: [], pedidos: [] });
-            }
-        }
-
-        async function guardarEmpresaConLogo(base, nuevaEmpresa) {
+            let nuevaEmpresa = { rut, nombre, giro, logo, telefono, direccion, password, productos: [], pedidos: [] };
             base.push(nuevaEmpresa);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
 
-            try {
-                await fetch(`${BACKEND_URL}/api/empresas/registro`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(nuevaEmpresa)
-                });
-            } catch(e) {}
-
             localStorage.setItem('lt_sesion_empresa', JSON.stringify(nuevaEmpresa));
-            showToast("¡Comercio registrado con éxito!");
+            showToast("Comercio registrado con éxito");
             setTimeout(() => location.reload(), 800);
         }
 
@@ -697,8 +567,7 @@
 
         function cerrarSesionEmpresa() {
             localStorage.removeItem('lt_sesion_empresa');
-            showToast("Sesión cerrada correctamente.");
-            setTimeout(() => location.reload(), 800);
+            location.reload();
         }
 
         function obtenerEmpresaActualizada() {
@@ -710,7 +579,9 @@
         function obtenerEmpresaActualizadaPorRut(rut) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
-            if (emp) localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
+            if (emp) {
+                localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
+            }
             return emp;
         }
 
@@ -719,16 +590,17 @@
             if (emp && emp.pedidos) {
                 let pendientes = emp.pedidos.filter(p => {
                     let st = (p.estado || '').toLowerCase().trim();
-                    return st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
+                    return st !== 'listo para retirar (en ruta/cadete)' && 
+                           !st.includes('entregado') && 
+                           !st.includes('cerrado');
                 });
                 let badge = document.getElementById('badge-pedidos-count');
                 if (badge) badge.innerText = pendientes.length;
             }
         }
 
-        async function mostrarDashboardEmpresa() {
+        function mostrarDashboardEmpresa() {
             actualizarMenuActivoEmpresa(0);
-            await sincronizarPedidosDesdeServidor();
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -738,6 +610,11 @@
                 return st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
             }).length;
             let totalEnRuta = (emp.pedidos || []).filter(p => p.estado === 'Listo para Retirar (En Ruta/Cadete)').length;
+
+            let textoQrMostrador = `LOTENGO:CATALOGO:RUT:${emp.rut}`;
+            let urlQrMostrador = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(textoQrMostrador)}`;
+
+            let tituloCocina = emp.giro === 'Gastronomía' ? 'Cocina Activos' : 'Pedidos Activos';
 
             container.innerHTML = `
                 <div style="background: linear-gradient(135deg, var(--primary), #004080); color:white; padding:20px; border-radius:var(--radius); margin-bottom:18px; display:flex; align-items:center; gap:15px;">
@@ -749,20 +626,27 @@
                     </div>
                 </div>
 
+                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:16px; margin-bottom:18px; text-align:center; box-shadow:var(--shadow-subtle);">
+                    <h4 style="margin:0 0 6px 0; color:var(--primary); font-size:15px;">📱 QR de Mostrador (Catálogo App)</h4>
+                    <p style="margin:0 0 12px 0; font-size:12px; color:#666;">Imprimilo para que los clientes escaneen y pidan.</p>
+                    <img src="${urlQrMostrador}" alt="QR Mostrador" style="width:130px; height:130px; border:1px solid #ddd; padding:4px; border-radius:8px; display:block; margin:0 auto 10px auto;">
+                    <button type="button" onclick="window.print()" style="width:auto; padding:8px 14px; font-size:12px; background:var(--primary);">🖨️ Imprimir Cartel QR</button>
+                </div>
+
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:15px;">
                     <div style="background:#fff; border:1px solid var(--border); padding:12px; border-radius:var(--radius); text-align:center; cursor:pointer;" onclick="mostrarPedidosEntrantesComercio()">
-                        <span style="font-size:22px;">🛎️</span>
+                        <span style="font-size:22px;">${emp.giro === 'Gastronomía' ? '🍳' : '🛎️'}</span>
                         <h4 style="margin:4px 0 0 0; color:var(--secondary);">${totalPedidos}</h4>
-                        <p style="margin:0; font-size:11px; color:#666;">Tablero Cocina</p>
+                        <p style="margin:0; font-size:11px; color:#666;">${tituloCocina}</p>
                     </div>
                     <div style="background:#fff; border:1px solid var(--border); padding:12px; border-radius:var(--radius); text-align:center; cursor:pointer;" onclick="mostrarPedidosEnRutaComercio()">
                         <span style="font-size:22px;">🛵</span>
                         <h4 style="margin:4px 0 0 0; color:var(--success);">${totalEnRuta}</h4>
-                        <p style="margin:0; font-size:11px; color:#666;">Envíos / Retiro</p>
+                        <p style="margin:0; font-size:11px; color:#666;">Esperando Cadete</p>
                     </div>
                 </div>
 
-                <button type="button" onclick="mostrarGestionCatalogo()" style="background:var(--secondary); margin-bottom:8px;">+ Gestionar Catálogo y Vehículos</button>
+                <button type="button" onclick="mostrarGestionCatalogo()" style="background:var(--secondary); margin-bottom:8px;">+ Gestionar mi Catálogo</button>
             `;
         }
 
@@ -777,7 +661,7 @@
                     <img src="${p.imagen || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80'}" class="gestion-avatar" alt="${p.nombre}">
                     <div style="flex:1;">
                         <h4 style="margin:0 0 2px 0; color:var(--primary); font-size:14px;">${p.nombre}</h4>
-                        <p style="margin:0; font-size:13px; font-weight:bold; color:var(--success);">$${p.precio} <span class="badge-vehiculo">${(p.vehiculoRequerido || 'moto').toUpperCase()}</span> ${p.outlet ? '<span class="badge-outlet">Outlet</span>' : ''}</p>
+                        <p style="margin:0; font-size:13px; font-weight:bold; color:var(--success);">$${p.precio} ${p.outlet ? '<span class="badge-outlet">Outlet</span>' : ''} ${p.destacado ? '<span class="badge-destacado">⭐ Destacado</span>' : ''}</p>
                     </div>
                     <button type="button" onclick="eliminarProductoComercio(${p.id})" style="width:auto; padding:8px 10px; font-size:11px; background:#dc3545;">Eliminar</button>
                 </div>
@@ -787,20 +671,18 @@
                 <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
                 </button>
-                <div class="section-title"><span>📦 Catálogo y Asignación de Vehículo</span></div>
+                <div class="section-title"><span>📦 Mi Catálogo Exclusivo</span></div>
                 <div style="background:#fff; border:1px solid var(--border); padding:15px; border-radius:var(--radius); margin-bottom:15px;">
-                    <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">Nuevo Artículo</h4>
-                    <input type="text" id="nuevoProdNombre" placeholder="Nombre (ej: Chivito o Heladera)">
-                    <input type="number" id="nuevoProdPrecio" placeholder="Precio en $">
+                    <h4 style="margin:0 0 10px 0; color:var(--primary); font-size:14px;">Agregar Nuevo Artículo</h4>
+                    <input type="text" id="nuevoProdNombre" placeholder="Nombre del producto o artículo">
+                    <input type="number" id="nuevoProdPrecio" placeholder="Precio en $ (ej: 450)">
                     
-                    <label style="font-size: 12px; color: #555; display:block; margin-top:6px;">Vehículo Requerido Obligatorio:</label>
-                    <select id="nuevoProdVehiculo">
-                        <option value="moto">🏍️ Moto (Estándar)</option>
-                        <option value="camioneta">🚐 Camioneta (Voluminoso / 3x Envío)</option>
-                    </select>
-
                     <label style="font-size: 12px; color: #555; display:block; margin-top:6px;">Foto del Producto:</label>
-                    <input type="file" id="nuevoProdFile" accept="image/*" capture="environment">
+                    <input type="file" id="nuevoProdFile" accept="image/*" onchange="comprimirImagenLocal(event, 'nuevoProdImgBase64', 'prevProdImg')">
+                    <input type="hidden" id="nuevoProdImgBase64">
+                    <div id="prevProdContainer" style="display:none; text-align:center; margin-bottom:10px;">
+                        <img id="prevProdImg" style="width:70px; height:70px; border-radius:8px; object-fit:cover; border:1.5px solid var(--primary);">
+                    </div>
 
                     <label style="font-size: 12px; display:flex; align-items:center; gap:8px; margin: 8px 0;">
                         <input type="checkbox" id="nuevoProdOutlet" style="width:auto; margin:0;"> Publicar en Zona Outlet 🔥
@@ -812,33 +694,20 @@
             `;
         }
 
-        function guardarNuevoProducto() {
+        async function guardarNuevoProducto() {
             let nombre = document.getElementById('nuevoProdNombre').value.trim();
             let precio = parseFloat(document.getElementById('nuevoProdPrecio').value);
-            let vehiculoRequerido = document.getElementById('nuevoProdVehiculo').value;
-            let fileInput = document.getElementById('nuevoProdFile');
+            let imagen = document.getElementById('nuevoProdImgBase64').value || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80';
             let outlet = document.getElementById('nuevoProdOutlet').checked;
 
-            if (!nombre || !precio) { showToast("Completá nombre y precio.", "error"); return; }
+            if (!nombre || !precio) { showToast("Completá nombre y precio", "error"); return; }
 
-            if (fileInput.files && fileInput.files[0]) {
-                let reader = new FileReader();
-                reader.onload = function(e) {
-                    procesarGuardadoProducto(nombre, precio, vehiculoRequerido, e.target.result, outlet);
-                };
-                reader.readAsDataURL(fileInput.files[0]);
-            } else {
-                procesarGuardadoProducto(nombre, precio, vehiculoRequerido, 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80', outlet);
-            }
-        }
-
-        async function procesarGuardadoProducto(nombre, precio, vehiculoRequerido, imagen, outlet) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
             let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
 
             if (!emp.productos) emp.productos = [];
-            let nuevoP = { id: Date.now(), nombre, precio, vehiculoRequerido, outlet, imagen };
+            let nuevoP = { id: Date.now(), nombre, precio, outlet, destacado: false, imagen };
 
             emp.productos.push(nuevoP);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
@@ -852,12 +721,12 @@
                 });
             } catch(e) {}
 
-            showToast("¡Producto guardado con vehículo requerido asignado!");
+            showToast("Producto agregado con éxito");
             mostrarGestionCatalogo();
         }
 
         async function eliminarProductoComercio(idProd) {
-            if (!confirm("¿Eliminar producto?")) return;
+            if (!confirm("¿Estás seguro de eliminar este producto?")) return;
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
             let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
@@ -874,128 +743,70 @@
                 });
             } catch(e) {}
 
+            showToast("Producto eliminado");
             mostrarGestionCatalogo();
         }
 
-        // ==========================================
-        // TABLERO KANBAN DE PEDIDOS POR COLUMNAS + COMUNICACIÓN CON CLIENTE
-        // ==========================================
-        async function mostrarPedidosEntrantesComercio() {
+        function mostrarPedidosEntrantesComercio() {
             actualizarMenuActivoEmpresa(2);
-            await sincronizarPedidosDesdeServidor();
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
             actualizarContadorPedidosBadge(emp.rut);
             const container = document.getElementById('main-content-empresa');
-            
-            Object.values(temporizadoresGlobales).forEach(t => clearInterval(t));
-            temporizadoresGlobales = {};
 
             let pedidosActivos = (emp.pedidos || []).filter(p => {
                 let st = (p.estado || '').toLowerCase().trim();
-                return st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
+                return st !== 'listo para retirar (en ruta/cadete)' && 
+                       !st.includes('entregado') && 
+                       !st.includes('cerrado');
             });
             pedidosActivos.sort((a, b) => b.id - a.id);
 
-            let recibidos = pedidosActivos.filter(p => (p.estado || 'Recibido').toLowerCase() === 'recibido');
-            let enPreparacion = pedidosActivos.filter(p => (p.estado || '').toLowerCase().includes('preparación'));
+            let htmlPedidos = pedidosActivos.map(p => {
+                let itemsHtml = (p.items || []).map(i => `<div style="font-size:13px; border-bottom:1px dashed #eee; padding:4px 0;"><span><b>${i.cantidad || 1}x</b> ${i.nombre}</span></div>`).join('') || `<p style="font-size:13px;">${p.descripcion || ''}</p>`;
+
+                let btnEstado1Texto = emp.giro === 'Gastronomía' ? 'En Cocina' : 'En Preparación';
+
+                return `
+                    <div style="background:#fff; border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:var(--radius); padding:15px; margin-bottom:15px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                            <strong style="color:var(--primary);">Pedido #${p.id}</strong>
+                            <span style="font-size:11px; background:#eef2f6; padding:4px 8px; border-radius:6px; font-weight:bold;">${p.estado || 'Recibido'}</span>
+                        </div>
+                        <p style="margin:4px 0; font-size:13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || ''})</p>
+                        <p style="margin:4px 0; font-size:13px;">📍 <b>Destino:</b> ${p.direccion}</p>
+                        <div style="background:#fdfdfd; border:1px solid #eee; padding:8px; border-radius:6px; margin:6px 0;">${itemsHtml}</div>
+                        
+                        <div style="display:flex; gap:6px; margin-top:10px;">
+                            <button type="button" onclick="cambiarEstadoPedido(${p.id}, '${btnEstado1Texto}')" style="flex:1; padding:8px; font-size:11px; background:var(--warning); color:#000;">${btnEstado1Texto}</button>
+                            <button type="button" onclick="cambiarEstadoPedido(${p.id}, 'Listo para Retirar (En Ruta/Cadete)')" style="flex:1; padding:8px; font-size:11px; background:var(--success);">Liberar (Esperando Cadete)</button>
+                        </div>
+                    </div>
+                `;
+            }).join('') || `<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos activos.</p>`;
+
+            let tituloSeccion = emp.giro === 'Gastronomía' ? '🍳 Pedidos en Cocina' : '🛎️ Pedidos en Preparación';
 
             container.innerHTML = `
                 <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
                 </button>
                 <div id="bandera-vista-pedidos"></div>
-                <div class="section-title">
-                    <span>🛎️ Tablero de Cocina (Por Columnas)</span>
-                    <button type="button" onclick="mostrarPedidosEntrantesComercio()" style="width:auto; padding:6px 10px; font-size:11px; background:var(--primary);">Actualizar 🔄</button>
+                
+                <div style="display:flex; gap:8px; margin-bottom:15px;">
+                    <button type="button" style="flex:1; padding:10px; font-size:12px; background:var(--primary);">${emp.giro === 'Gastronomía' ? '🍳 Cocina' : '🛎️ Pedidos'}</button>
+                    <button type="button" onclick="mostrarPedidosEnRutaComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">🛵 Esperando Cadete</button>
+                    <button type="button" onclick="mostrarHistorialFinancieroComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">✅ Finalizados</button>
                 </div>
 
-                <div class="kanban-columns">
-                    <div class="kanban-column">
-                        <div class="kanban-column-title" style="color: #0369A1;">
-                            <span>📥 Nuevos / Recibidos</span>
-                            <span style="background:#E0F2FE; color:#0369A1; padding:2px 8px; border-radius:10px; font-size:12px;">${recibidos.length}</span>
-                        </div>
-                        ${renderizarTarjetasPedidosColumna(recibidos)}
-                    </div>
-
-                    <div class="kanban-column">
-                        <div class="kanban-column-title" style="color: #C2410C;">
-                            <span>👨‍🍳 En Preparación (Cocina)</span>
-                            <span style="background:#FFEDD5; color:#C2410C; padding:2px 8px; border-radius:10px; font-size:12px;">${enPreparacion.length}</span>
-                        </div>
-                        ${renderizarTarjetasPedidosColumna(enPreparacion)}
-                    </div>
-                </div>
+                <div class="section-title"><span>${tituloSeccion}</span></div>
+                ${htmlPedidos}
             `;
-
-            pedidosActivos.forEach(p => iniciarCronometroEnVivo(p.id, p.tiempoInicioEstado));
         }
 
-        function renderizarTarjetasPedidosColumna(lista) {
-            if (lista.length === 0) return '<p style="text-align:center; color:#888; font-size:12px; padding:15px;">No hay pedidos en esta columna.</p>';
-
-            return lista.map(p => {
-                let textoQr = `PEDIDO:#${p.id}|CLIENTE:${p.cliente}|PIN:${p.codigoVerificacion}|TOTAL:$${p.total}`;
-                let urlQr = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(textoQr)}`;
-
-                let itemsHtml = (p.items || []).map(i => `
-                    <div style="font-size: 12px; border-bottom: 1px dashed #eee; padding: 4px 0; display: flex; justify-content: space-between;">
-                        <span><b>${i.cantidad || 1}x</b> ${i.nombre}</span>
-                        <b>$${(i.precio * (i.cantidad || 1))}</b>
-                    </div>
-                `).join('') || `<p style="font-size:12px; color:#333; margin:2px 0;">📦 ${p.descripcion || 'Pedido'}</p>`;
-
-                if (!p.tiempoInicioEstado) p.tiempoInicioEstado = Date.now();
-
-                return `
-                    <div style="background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <strong style="color: var(--primary); font-size: 14px;">📦 #${p.id}</strong>
-                            <span style="font-size: 10px; background: #eef2f6; padding: 2px 6px; border-radius: 4px; font-weight: bold;">$${p.total}</span>
-                        </div>
-                        
-                        <p style="margin: 2px 0; font-size: 12px;">👤 <b>${p.cliente}</b></p>
-                        <p style="margin: 2px 0; font-size: 12px; color:#555;">📍 ${p.direccion}</p>
-                        
-                        <div style="background: #fdfdfd; border: 1px solid #eee; padding: 8px; border-radius: 6px; margin: 6px 0;">
-                            ${itemsHtml}
-                        </div>
-
-                        <button type="button" onclick="comunicarseConCliente('${p.telefonoCliente || '099000000'}', '${p.id}')" style="background:#0284C7; font-size:11px; padding:6px; margin-bottom:6px;">💬 Comunicarse con Cliente (Falta Stock)</button>
-
-                        <div style="background: #fff3cd; border: 1px solid #ffeeba; padding: 6px; border-radius: 6px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 11px; color: #856404; font-weight: bold;">⏱️ Tiempo:</span>
-                            <span id="cronometro-${p.id}" style="font-family: monospace; font-size: 14px; font-weight: bold; color: #856404;">00:00</span>
-                        </div>
-
-                        <div style="display: flex; gap: 4px; margin-bottom: 6px;">
-                            ${(p.estado || '').toLowerCase() === 'recibido' ? `
-                                <button type="button" onclick="cambiarEstadoPedido(${p.id}, 'En Preparación')" style="flex:1; padding: 6px; font-size: 11px; background: var(--warning); color:#000;">➡ En Preparación</button>
-                            ` : ''}
-                            <button type="button" onclick="cambiarEstadoPedido(${p.id}, 'Listo para Retirar (En Ruta/Cadete)')" style="flex:1; padding: 6px; font-size: 11px; background: var(--success);">✓ Liberar Envío</button>
-                        </div>
-
-                        <div style="display: flex; justify-content: space-between; align-items: center; border-top:1px solid #eee; padding-top:6px;">
-                            <span style="font-size: 11px; color: #137333; font-weight: bold;">PIN: ${p.codigoVerificacion}</span>
-                            <button type="button" onclick="imprimirTicketPedido(${p.id})" style="width:auto; padding: 4px 8px; font-size: 10px; background: var(--primary);">🖨️ Ticket</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function comunicarseConCliente(telefono, idPedido) {
-            let mensaje = prompt(`Enviar aviso al cliente (Pedido #${idPedido}) por faltante de producto o modificación:`, `Hola ${telefono}, te contactamos de LO TENGO por tu pedido #${idPedido}: nos quedamos sin stock de un producto, ¿querés cambiarlo por... ?`);
-            if (mensaje) {
-                showToast("Mensaje enviado al cliente correctamente.");
-            }
-        }
-
-        async function mostrarPedidosEnRutaComercio() {
+        function mostrarPedidosEnRutaComercio() {
             actualizarMenuActivoEmpresa(3);
-            await sincronizarPedidosDesdeServidor();
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -1004,27 +815,33 @@
             pedidosEnRuta.sort((a, b) => b.id - a.id);
 
             let htmlRuta = pedidosEnRuta.map(p => `
-                <div style="background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--success); border-radius: var(--radius); padding: 15px; margin-bottom: 15px;">
-                    <strong style="color: var(--success); font-size: 16px;">🛵 Pedido #${p.id} (Liberado)</strong>
-                    <p style="margin: 4px 0; font-size: 13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || 'Sin tel'})</p>
-                    <p style="margin: 4px 0; font-size: 13px;">📍 <b>Destino:</b> ${p.direccion}</p>
-                    <p style="margin: 4px 0; font-size: 13px; color:var(--secondary);">🔑 <b>PIN de Entrega:</b> ${p.codigoVerificacion}</p>
+                <div style="background:#fff; border:1px solid var(--border); border-left:4px solid var(--success); border-radius:var(--radius); padding:15px; margin-bottom:15px;">
+                    <strong style="color:var(--success);">Pedido #${p.id} (Liberado)</strong>
+                    <p style="margin:4px 0; font-size:13px;">👤 <b>Cliente:</b> ${p.cliente}</p>
+                    <p style="margin:4px 0; font-size:13px;">📍 <b>Destino:</b> ${p.direccion}</p>
+                    <p style="margin:4px 0; font-size:13px; color:var(--secondary);">🔑 <b>PIN:</b> ${p.codigoVerificacion}</p>
                 </div>
-            `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos pendientes de retiro.</p>';
+            `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos esperando cadete.</p>';
 
             container.innerHTML = `
                 <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
                 </button>
                 <div id="bandera-vista-envios"></div>
-                <div class="section-title"><span>🛵 Pedidos Liberados</span></div>
+                
+                <div style="display:flex; gap:8px; margin-bottom:15px;">
+                    <button type="button" onclick="mostrarPedidosEntrantesComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">${emp.giro === 'Gastronomía' ? '🍳 Cocina' : '🛎️ Pedidos'}</button>
+                    <button type="button" style="flex:1; padding:10px; font-size:12px; background:var(--primary);">🛵 Esperando Cadete</button>
+                    <button type="button" onclick="mostrarHistorialFinancieroComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">✅ Finalizados</button>
+                </div>
+
+                <div class="section-title"><span>🛵 Esperando Retiro de Cadete</span></div>
                 ${htmlRuta}
             `;
         }
 
-        async function mostrarHistorialFinancieroComercio() {
+        function mostrarHistorialFinancieroComercio() {
             actualizarMenuActivoEmpresa(4);
-            await sincronizarPedidosDesdeServidor();
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -1035,85 +852,64 @@
             });
             pedidosCerrados.sort((a, b) => b.id - a.id);
 
-            const COMISION_PORCENTAJE = 0.10;
-            let brutoTotal = 0;
-            let comisionesTotal = 0;
-
-            let htmlHistorial = pedidosCerrados.map(p => {
-                let montoBruto = parseFloat(p.total) || 0;
-                let comision = montoBruto * COMISION_PORCENTAJE;
-                let neto = montoBruto - comision;
-
-                brutoTotal += montoBruto;
-                comisionesTotal += comision;
-
-                return `
-                    <div style="background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; font-size: 13px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                            <b>Pedido #${p.id}</b>
-                            <span style="color:var(--success); font-weight:bold;">Entregado ✓</span>
-                        </div>
-                        <p style="margin:2px 0; color:#555;">Cliente: ${p.cliente}</p>
-                        <div style="display: flex; justify-content: space-between; border-top: 1px dashed #eee; margin-top: 6px; padding-top: 6px; font-size: 12px;">
-                            <span>Venta Bruta: $${montoBruto.toFixed(2)}</span>
-                            <span style="color:#dc3545;">Comisión (10%): -$${comision.toFixed(2)}</span>
-                            <b style="color:var(--primary);">Neto: $${neto.toFixed(2)}</b>
-                        </div>
+            let htmlHistorial = pedidosCerrados.map(p => `
+                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:10px; font-size:13px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                        <b>Pedido #${p.id}</b>
+                        <span style="color:var(--success); font-weight:bold;">Entregado ✓</span>
                     </div>
-                `;
-            }).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">Aún no hay pedidos en el historial.</p>';
-
-            let netoTotal = brutoTotal - comisionesTotal;
+                    <p style="margin:2px 0; color:#555;">Cliente: ${p.cliente} | Total: <b>$${p.total}</b></p>
+                </div>
+            `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">Aún no hay pedidos finalizados.</p>';
 
             container.innerHTML = `
                 <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
                 </button>
-                <div class="section-title"><span>💰 Historial y Liquidación</span></div>
-                <div style="background:linear-gradient(135deg, #137333, #0d5123); color:white; padding:15px; border-radius:var(--radius); margin-bottom:15px;">
-                    <h4 style="margin:0 0 8px 0; font-size:14px;">Resumen Financiero Acumulado</h4>
-                    <p style="margin:2px 0; font-size:12px; opacity:0.9;">Total Bruto Ventas: $${brutoTotal.toFixed(2)}</p>
-                    <p style="margin:2px 0; font-size:12px; opacity:0.9;">Total Comisiones: -$${comisionesTotal.toFixed(2)}</p>
-                    <h3 style="margin:8px 0 0 0; font-size:18px; border-top:1px solid rgba(255,255,255,0.3); padding-top:6px;">Neto Líquido: $${netoTotal.toFixed(2)}</h3>
+                
+                <div style="display:flex; gap:8px; margin-bottom:15px;">
+                    <button type="button" onclick="mostrarPedidosEntrantesComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">${emp.giro === 'Gastronomía' ? '🍳 Cocina' : '🛎️ Pedidos'}</button>
+                    <button type="button" onclick="mostrarPedidosEnRutaComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">🛵 Esperando Cadete</button>
+                    <button type="button" style="flex:1; padding:10px; font-size:12px; background:var(--primary);">✅ Finalizados</button>
                 </div>
+
+                <div class="section-title"><span>✅ Pedidos Finalizados y Entregados</span></div>
                 ${htmlHistorial}
             `;
         }
 
-        function iniciarCronometroEnVivo(idPedido, timestampInicio) {
-            const elCronometro = document.getElementById(`cronometro-${idPedido}`);
-            if (!elCronometro) return;
+        function mostrarPerfilEmpresa() {
+            actualizarMenuActivoEmpresa(5);
+            let emp = obtenerEmpresaActualizada();
+            if (!emp) return;
 
-            function actualizarReloj() {
-                let ahora = Date.now();
-                let segundosTotales = Math.floor((ahora - timestampInicio) / 1000);
-                if (segundosTotales < 0) segundosTotales = 0;
-                let mins = Math.floor(segundosTotales / 60);
-                let secs = segundosTotales % 60;
-                elCronometro.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-            }
+            const container = document.getElementById('main-content-empresa');
+            container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
+                </button>
+                <div class="section-title"><span>👤 Perfil del Comercio</span></div>
+                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; margin-bottom:15px; box-shadow:var(--shadow-subtle);">
+                    ${emp.logo ? `<img src="${emp.logo}" style="width:90px; height:90px; border-radius:50%; object-fit:cover; border:3px solid var(--secondary); margin-bottom:12px;" alt="Logo Empresa">` : '<div style="font-size:40px; margin-bottom:10px;">🏪</div>'}
+                    <h3 style="margin:0 0 5px 0; color:var(--primary);">${emp.nombre}</h3>
+                    <p style="margin:0 0 4px 0; font-size:13px; color:#666;">RUT: <b>${emp.rut}</b></p>
+                    <p style="margin:0 0 4px 0; font-size:13px; color:#666;">Giro: <b>${emp.giro || 'Comercio'}</b></p>
+                    <p style="margin:0 0 4px 0; font-size:13px; color:#666;">📞 Tel: <b>${emp.telefono || 'Sin tel'}</b></p>
+                    <p style="margin:0; font-size:13px; color:#666;">📍 Dirección: <b>${emp.direccion || 'Montevideo'}</b></p>
+                </div>
 
-            actualizarReloj();
-            temporizadoresGlobales[idPedido] = setInterval(actualizarReloj, 1000);
+                <button type="button" onclick="cerrarSesionEmpresa()" style="background:var(--danger); font-weight:bold;">🚪 Cerrar Sesión</button>
+            `;
         }
 
         window.cambiarEstadoPedido = function(idPedido, nuevoEstado) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
-            if (!sesion) return;
-
-            let empIndex = base.findIndex(e => String(e.rut).trim() === String(sesion.rut).trim());
-            if (empIndex === -1) return;
-
-            let emp = base[empIndex];
-            if (!emp.pedidos) emp.pedidos = [];
-
+            let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
             let pedido = emp.pedidos.find(p => Number(p.id) === Number(idPedido));
+
             if (pedido) {
                 pedido.estado = nuevoEstado;
-                pedido.tiempoInicioEstado = Date.now();
-                pedido.rutComercio = emp.rut;
-
                 localStorage.setItem('lt_base_empresas', JSON.stringify(base));
                 localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
 
@@ -1123,29 +919,44 @@
                     body: JSON.stringify(pedido)
                 }).catch(e => {});
 
+                if (socket && socket.connected) {
+                    socket.emit('cambiar_estado_pedido', { pedidoId: idPedido, estado: nuevoEstado });
+                }
+
+                if (nuevoEstado === 'Listo para Retirar (En Ruta/Cadete)') {
+                    let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+                    if (!pedidosCadete.some(p => Number(p.id) === Number(idPedido))) {
+                        pedidosCadete.push({
+                            id: pedido.id,
+                            comercio: emp.nombre,
+                            rutComercio: emp.rut,
+                            direccionComercio: emp.direccion,
+                            telefonoComercio: emp.telefono,
+                            cliente: pedido.cliente,
+                            direccionCliente: pedido.direccion,
+                            telefonoCliente: pedido.telefonoCliente || 'Sin tel',
+                            total: pedido.total,
+                            codigoVerificacion: pedido.codigoVerificacion,
+                            estado: 'Disponible para retirar'
+                        });
+                        localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+                    }
+                }
+
                 window.dispatchEvent(new Event('storage'));
-                mostrarPedidosEntrantesComercio();
+                showToast("Estado actualizado");
+
+                if (nuevoEstado === 'Listo para Retirar (En Ruta/Cadete)') {
+                    mostrarPedidosEnRutaComercio();
+                } else {
+                    mostrarPedidosEntrantesComercio();
+                }
             }
         };
 
-        window.imprimirTicketPedido = function(idPedido) {
-            let emp = obtenerEmpresaActualizada();
-            if (!emp || !emp.pedidos) return;
-            let pedido = emp.pedidos.find(p => Number(p.id) === Number(idPedido));
-            if (!pedido) return;
-
-            let itemsTicket = (pedido.items || []).map(i => `<tr><td>${i.cantidad || 1}x ${i.nombre}</td><td style="text-align:right;">$${(i.precio * (i.cantidad || 1))}</td></tr>`).join('') || `<tr><td colspan="2">${pedido.descripcion}</td></tr>`;
-
-            let ventana = window.open('', '_blank', 'width=400,height=600');
-            ventana.document.write(`<html><head><title>Ticket</title></head><body style="font-family: monospace; padding: 15px;"><h3>${emp.nombre}</h3><p>Pedido #${pedido.id}</p><hr><table style="width:100%;">${itemsTicket}</table><hr><h3>Total: $${pedido.total}</h3><h2>PIN: ${pedido.codigoVerificacion}</h2><script>window.onload=function(){window.print();}<\/script></body></html>`);
-            ventana.document.close();
-        };
-
         function actualizarMenuActivoEmpresa(index) {
-            const botones = document.querySelectorAll('.bottom-nav .nav-item');
-            botones.forEach((btn, idx) => {
-                if (idx === index) btn.classList.add('active');
-                else btn.classList.remove('active');
+            document.querySelectorAll('.bottom-nav .nav-item').forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === index);
             });
         }
     </script>

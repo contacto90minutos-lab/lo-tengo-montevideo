@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LO TENGO - Panel de Administración</title>
+    <!-- Cliente Socket.io para tiempo real -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <style>
         :root {
             --primary: #0A192F;
@@ -34,59 +36,31 @@
             overflow-x: hidden;
         }
 
-        /* Splash Screen Animado Minimalista */
         #splash-screen {
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
+            top: 0; left: 0; width: 100vw; height: 100vh;
             background: #0A192F;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
             z-index: 9999;
             transition: opacity 0.5s ease, visibility 0.5s ease;
         }
 
         .splash-logo-container {
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            display: flex; align-items: center; gap: 12px;
             animation: logoScale 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
 
         .splash-isologo {
-            width: 54px;
-            height: 54px;
+            width: 54px; height: 54px;
             background: linear-gradient(135deg, #2563EB, #3B82F6);
             border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #FFFFFF;
-            font-weight: 900;
-            font-size: 26px;
-            letter-spacing: -1px;
+            display: flex; align-items: center; justify-content: center;
+            color: #FFFFFF; font-weight: 900; font-size: 26px; letter-spacing: -1px;
             box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4);
         }
 
-        .splash-texto {
-            color: #FFFFFF;
-            font-size: 28px;
-            font-weight: 900;
-            letter-spacing: -1px;
-        }
-
-        .splash-sub {
-            color: #94A3B8;
-            font-size: 11px;
-            font-weight: 700;
-            letter-spacing: 2px;
-            margin-top: 14px;
-            text-transform: uppercase;
-        }
+        .splash-texto { color: #FFFFFF; font-size: 28px; font-weight: 900; letter-spacing: -1px; }
+        .splash-sub { color: #94A3B8; font-size: 11px; font-weight: 700; letter-spacing: 2px; margin-top: 14px; text-transform: uppercase; }
 
         @keyframes logoScale {
             0% { opacity: 0; transform: scale(0.8); }
@@ -95,256 +69,118 @@
 
         #app-container {
             background: var(--card-bg);
-            width: 100%;
-            max-width: 480px;
-            min-height: 100vh;
+            width: 100%; max-width: 480px; min-height: 100vh;
             box-shadow: 0 10px 25px rgba(0,0,0,0.08);
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            position: relative;
+            box-sizing: border-box; display: flex; flex-direction: column; position: relative;
         }
 
         .header-app {
-            background: var(--primary);
-            color: white;
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            background: var(--primary); color: white; padding: 16px 20px;
+            display: flex; justify-content: space-between; align-items: center;
             border-bottom: 2px solid var(--accent);
         }
 
         .header-app h1 {
-            margin: 0;
-            font-size: 17px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            margin: 0; font-size: 17px; font-weight: 700; letter-spacing: -0.3px;
+            display: flex; align-items: center; gap: 8px;
         }
 
         .brand-badge {
-            background: var(--accent);
-            color: #fff;
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 900;
+            background: var(--accent); color: #fff; width: 26px; height: 26px;
+            border-radius: 6px; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 900;
         }
 
-        .content-body {
-            padding: 16px;
-            flex: 1;
-            overflow-y: auto;
-            padding-bottom: 85px;
-        }
+        .content-body { padding: 16px; flex: 1; overflow-y: auto; padding-bottom: 85px; }
 
         label {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--text-muted);
-            display: block;
-            margin-bottom: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-size: 12px; font-weight: 600; color: var(--text-muted);
+            display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px;
         }
 
         input, select, textarea {
-            width: 100%;
-            padding: 10px 12px;
-            margin: 4px 0 14px 0;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-sizing: border-box;
-            font-size: 14px;
-            background: #FFFFFF;
-            color: var(--text-main);
+            width: 100%; padding: 10px 12px; margin: 4px 0 14px 0;
+            border: 1px solid var(--border); border-radius: var(--radius);
+            box-sizing: border-box; font-size: 14px; background: #FFFFFF; color: var(--text-main);
         }
 
         input:focus, select:focus {
-            outline: none;
-            border-color: var(--accent);
+            outline: none; border-color: var(--accent);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
         button {
-            width: 100%;
-            padding: 10px;
-            background-color: var(--accent);
-            color: white;
-            border: none;
-            border-radius: var(--radius);
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 13px;
-            transition: background-color 0.2s;
+            width: 100%; padding: 10px; background-color: var(--accent); color: white;
+            border: none; border-radius: var(--radius); font-weight: 600; cursor: pointer;
+            font-size: 13px; transition: background-color 0.2s;
         }
-
         button:hover { background-color: #1D4ED8; }
 
         .btn-volver-atras {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #E2E8F0;
-            color: var(--primary);
-            border: none;
-            padding: 8px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            border-radius: var(--radius);
-            cursor: pointer;
-            width: auto;
-            margin-bottom: 12px;
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #E2E8F0; color: var(--primary); border: none;
+            padding: 8px 12px; font-size: 12px; font-weight: 700; border-radius: var(--radius);
+            cursor: pointer; width: auto; margin-bottom: 12px;
         }
         .btn-volver-atras:hover { background: #CBD5E1; }
 
         .card-metric {
-            background: #FFFFFF;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 14px;
-            margin-bottom: 12px;
-            box-shadow: var(--shadow);
+            background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow);
         }
 
         .metric-title {
-            font-size: 11px;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            margin: 0 0 4px 0;
-            letter-spacing: 0.5px;
+            font-size: 11px; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; margin: 0 0 4px 0; letter-spacing: 0.5px;
         }
 
-        .metric-value {
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--text-main);
-            margin: 0;
-        }
-
-        /* Sistema de Columnas / Tablero KANBAN Admin */
-        .kanban-admin-columns {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .kanban-admin-column {
-            background: #F8FAFC;
-            border: 1.5px solid var(--border);
-            border-radius: var(--radius);
-            padding: 12px;
-        }
-        .kanban-admin-column-title {
-            font-size: 13px;
-            font-weight: 800;
-            margin: 0 0 10px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 6px;
-            border-bottom: 2px solid var(--border);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+        .metric-value { font-size: 22px; font-weight: 800; color: var(--text-main); margin: 0; }
 
         .pedido-admin-card {
-            background: #FFFFFF;
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 12px;
-            margin-bottom: 10px;
-            box-shadow: var(--shadow);
-            border-left: 5px solid var(--border);
+            background: #FFFFFF; border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--border);
         }
 
-        .table-container {
-            width: 100%;
-            overflow-x: auto;
-            margin-top: 8px;
+        @keyframes parpadeoAlerta {
+            0% { background-color: #FEE2E2; border-color: #EF4444; }
+            50% { background-color: #FECACA; border-color: #B91C1C; }
+            100% { background-color: #FEE2E2; border-color: #EF4444; }
+        }
+        .alerta-parpadeante {
+            animation: parpadeoAlerta 1.2s infinite ease-in-out;
+            border: 2px solid #EF4444;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 12px;
-            text-align: left;
-        }
-
-        th, td {
-            padding: 8px 10px;
-            border-bottom: 1px solid var(--border);
-        }
-
+        .table-container { width: 100%; overflow-x: auto; margin-top: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+        th, td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
         th {
-            background-color: #F8FAFC;
-            font-weight: 700;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            font-size: 10px;
-            letter-spacing: 0.5px;
+            background-color: #F8FAFC; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px;
         }
 
         .section-header {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--primary);
-            margin: 18px 0 10px 0;
-            padding-bottom: 4px;
-            border-bottom: 2px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            font-size: 14px; font-weight: 700; color: var(--primary);
+            margin: 18px 0 10px 0; padding-bottom: 4px; border-bottom: 2px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
         }
 
         .bottom-nav {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: #FFFFFF;
-            border-top: 1px solid var(--border);
-            display: flex;
-            justify-content: space-around;
-            padding: 8px 0;
-            box-sizing: border-box;
-            box-shadow: 0 -4px 12px rgba(0,0,0,0.04);
-            z-index: 10;
+            position: absolute; bottom: 0; left: 0; width: 100%; background: #FFFFFF;
+            border-top: 1px solid var(--border); display: flex; justify-content: space-around;
+            padding: 8px 0; box-sizing: border-box; box-shadow: 0 -4px 12px rgba(0,0,0,0.04); z-index: 10;
         }
 
         .nav-item {
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            font-size: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            width: auto;
-            padding: 4px 2px;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-transform: uppercase;
-            letter-spacing: 0.2px;
+            background: none; border: none; color: var(--text-muted); font-size: 8px; font-weight: 600;
+            cursor: pointer; width: auto; padding: 4px 2px; margin: 0;
+            display: flex; flex-direction: column; align-items: center; text-transform: uppercase; letter-spacing: 0.2px;
         }
-
-        .nav-item.active {
-            color: var(--accent);
-            font-weight: 700;
-        }
+        .nav-item.active { color: var(--accent); font-weight: 700; }
     </style>
 </head>
 <body>
 
-    <!-- Splash Screen Animado Minimalista -->
     <div id="splash-screen">
         <div class="splash-logo-container">
             <div class="splash-isologo">L+T</div>
@@ -354,15 +190,12 @@
     </div>
 
     <div id="app-container">
-        <!-- Header Corporativo -->
         <div class="header-app">
             <h1><div class="brand-badge">L+T</div>LO TENGO <span style="font-weight: 300; font-size: 14px; opacity: 0.85;">| Admin</span></h1>
             <span id="header-admin-user" style="font-size: 11px; font-weight: 600; opacity: 0.9;">Control Central</span>
         </div>
         
-        <!-- Cuerpo Principal -->
         <div class="content-body" id="main-content-admin">
-            <!-- Pantalla de Autenticación Admin -->
             <div id="screen-login-admin">
                 <h3 style="color: var(--primary); margin-top: 0; font-size: 16px; font-weight: 700;">Acceso Restringido</h3>
                 <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Panel exclusivo para la gestión corporativa de la red.</p>
@@ -374,24 +207,24 @@
             </div>
         </div>
 
-        <!-- Barra de Navegación Inferior -->
         <div class="bottom-nav" id="bottom-nav-admin" style="display: none;">
             <button class="nav-item active" onclick="mostrarDashboardAdmin()">Dashboard</button>
             <button class="nav-item" onclick="mostrarGestionPedidosAdmin()">Órdenes</button>
             <button class="nav-item" onclick="mostrarListaEmpresasAdmin()">Empresas</button>
             <button class="nav-item" onclick="mostrarListaCadetesAdmin()">Cadetes</button>
             <button class="nav-item" onclick="mostrarListaClientesAdmin()">Clientes</button>
-            <button class="nav-item" onclick="mostrarCampañasIAAdmin()">Campañas IA</button>
+            <button class="nav-item" onclick="mostrarCampañasIAAdmin()">IA & Ads</button>
             <button class="nav-item" onclick="mostrarLiquidacionEmpresas()">Comisiones</button>
             <button class="nav-item" onclick="cerrarSesionAdmin()">Salir</button>
         </div>
     </div>
 
-    <!-- Script de Control, Planillas y Tablero Kanban por Subestado -->
     <script>
-        const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
+        const BACKEND_URL = window.location.origin.includes('localhost') ? "http://localhost:3000" : window.location.origin;
+        let socket = null;
 
         let ultimoConteoAlertas = 0;
+        let filtroTabActualAdmin = 'activos';
         let alertasDesplegadas = {};
 
         document.addEventListener("DOMContentLoaded", () => {
@@ -401,24 +234,34 @@
                     splash.style.opacity = '0';
                     splash.style.visibility = 'hidden';
                 }
-            }, 1500);
+            }, 1200);
 
+            inicializarSocketAdmin();
             verificarSesionAdmin();
 
             setInterval(() => {
                 let sesion = localStorage.getItem('lt_sesion_admin');
-                if (sesion === 'true') {
-                    verificarAlertasCadetesEnVivo();
-                }
+                if (sesion === 'true') verificarAlertasCadetesEnVivo();
             }, 3000);
-
-            window.addEventListener('storage', () => {
-                let sesion = localStorage.getItem('lt_sesion_admin');
-                if (sesion === 'true') {
-                    verificarAlertasCadetesEnVivo();
-                }
-            });
         });
+
+        function inicializarSocketAdmin() {
+            try {
+                socket = io(BACKEND_URL);
+                socket.on('connect', () => {
+                    console.log("⚡ Admin conectado al WebSocket LO TENGO");
+                });
+                socket.on('nuevo_pedido_servidor', () => {
+                    let sesion = localStorage.getItem('lt_sesion_admin');
+                    if (sesion === 'true') {
+                        reproducirAlertaSonora();
+                        if (document.getElementById('bandera-vista-ordenes')) {
+                            mostrarGestionPedidosAdmin();
+                        }
+                    }
+                });
+            } catch (e) {}
+        }
 
         function verificarSesionAdmin() {
             const sesion = localStorage.getItem('lt_sesion_admin');
@@ -483,14 +326,20 @@
             let totalPedidosGlobales = 0;
             let volumenTransaccional = 0;
             let totalComisionesPlataforma = 0;
+            let ingresosPublicidadDestacados = 0;
             let listaPedidosGlobales = [];
 
             baseEmpresas.forEach(emp => {
+                if (emp.suscripcionDestacadosActiva) {
+                    ingresosPublicidadDestacados += 500;
+                }
+
                 if (emp.pedidos) {
                     emp.pedidos.forEach(p => {
                         totalPedidosGlobales++;
                         let st = (p.estado || '').toLowerCase();
                         let esCancelada = st.includes('cancelado');
+                        let esFinalizado = st.includes('entregado') || st.includes('cerrado');
 
                         if (!esCancelada) {
                             let monto = parseFloat(p.total) || 0;
@@ -498,11 +347,20 @@
                             totalComisionesPlataforma += (monto * 0.10);
                         }
 
+                        let pCadInfo = pedidosCadete.find(pc => String(pc.id).trim() === String(p.id).trim());
+                        let cadeteAsignadoNombre = p.cadeteAsignado || (pCadInfo ? pCadInfo.cadeteAsignado : 'Sin asignar');
+                        let ciCadeteAsignado = p.ciCadete || (pCadInfo ? pCadInfo.ciCadete : '');
+                        let cadeteObj = cadetes.find(c => String(c.ci).trim() === String(ciCadeteAsignado).trim() || String(c.nombre).trim() === String(cadeteAsignadoNombre).trim());
+
                         listaPedidosGlobales.push({
                             ...p,
-                            comercioNombre: emp.nombre,
                             comercioRut: emp.rut,
-                            esCancelada
+                            comercioNombre: emp.nombre,
+                            comercioTel: emp.telefono || 'Sin tel',
+                            cadeteNombre: cadeteAsignadoNombre,
+                            cadeteTel: cadeteObj ? cadeteObj.telefono : 'Sin tel',
+                            esCancelada,
+                            esFinalizado
                         });
                     });
                 }
@@ -517,7 +375,8 @@
                 listaPedidosGlobales,
                 totalPedidosGlobales,
                 volumenTransaccional,
-                totalComisionesPlataforma
+                totalComisionesPlataforma,
+                ingresosPublicidadDestacados
             };
         }
 
@@ -531,9 +390,9 @@
 
             if (alertasActivas.length > 0) {
                 htmlAlertasDashboard = `
-                    <div style="background: #FEE2E2; border: 1px solid #EF4444; border-radius: var(--radius); padding: 12px; margin-bottom: 15px;">
-                        <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #991B1B;">⚠️ ¡ATENCIÓN: ALERTA DE CADETE ACTIVA!</p>
-                        <p style="margin: 0; font-size: 12px; color: #7F1D1D;">Hay ${alertasActivas.length} reporte(s) de desperfecto mecánico en la calle. Diríjase a la sección de Órdenes.</p>
+                    <div class="alerta-parpadeante" style="border-radius: var(--radius); padding: 12px; margin-bottom: 15px;">
+                        <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #991B1B;">🚨 ¡ATENCIÓN: ALERTA DE CADETE ACTIVA!</p>
+                        <p style="margin: 0; font-size: 12px; color: #7F1D1D;">Hay ${alertasActivas.length} reporte(s) mecánico(s) en la calle.</p>
                     </div>
                 `;
             }
@@ -559,20 +418,20 @@
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                    <div class="card-metric" onclick="mostrarListaClientesAdmin()" style="cursor:pointer;">
-                        <p class="metric-title">Clientes</p>
-                        <p class="metric-value">${datos.clientes.length}</p>
-                    </div>
                     <div class="card-metric">
                         <p class="metric-title">Comisión Neta (10%)</p>
                         <p class="metric-value" style="color: var(--success);">$${datos.totalComisionesPlataforma.toFixed(2)}</p>
+                    </div>
+                    <div class="card-metric">
+                        <p class="metric-title">Ads Destacados ($500/sem)</p>
+                        <p class="metric-value" style="color: #7C3AED;">$${datos.ingresosPublicidadDestacados.toFixed(2)}</p>
                     </div>
                 </div>
             `;
         }
 
         // ==========================================
-        // GESTIÓN DE EMPRESAS Y PLANILLA PROFUNDA
+        // GESTIÓN DE EMPRESAS
         // ==========================================
         function mostrarListaEmpresasAdmin() {
             actualizarMenuActivoAdmin(2);
@@ -581,76 +440,49 @@
 
             let htmlEmpresas = datos.baseEmpresas.map(emp => {
                 let totalProd = emp.productos ? emp.productos.length : 0;
-                let totalPed = emp.pedidos ? emp.pedidos.length : 0;
+                let destacadoActivo = emp.suscripcionDestacadosActiva || false;
                 return `
-                    <div class="card-metric" onclick="verDetalleEmpresaAdmin('${emp.rut}')" style="cursor:pointer; border-left: 5px solid var(--accent);">
+                    <div class="card-metric" style="border-left: 5px solid ${destacadoActivo ? '#7C3AED' : 'var(--accent)'};">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--primary);">${emp.nombre}</h4>
-                            <span style="font-size:10px; background:#EFF6FF; color:var(--accent); padding:2px 6px; border-radius:4px; font-weight:700;">${emp.giro || 'Comercio'}</span>
+                            <span style="font-size:10px; background:${destacadoActivo ? '#FAF5FF' : '#EFF6FF'}; color:${destacadoActivo ? '#7C3AED' : 'var(--accent)'}; padding:2px 6px; border-radius:4px; font-weight:700;">${destacadoActivo ? '⭐ Destacados Active' : (emp.giro || 'Comercio')}</span>
                         </div>
                         <p style="margin:4px 0 2px 0; font-size:12px; color:var(--text-muted);"><b>RUT:</b> ${emp.rut} | <b>Tel:</b> ${emp.telefono || 'Sin tel'}</p>
                         <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📍 ${emp.direccion || 'Montevideo'}</p>
-                        <div style="display:flex; justify-content:space-between; margin-top:8px; border-top:1px solid var(--border); padding-top:6px; font-size:11px; font-weight:700;">
-                            <span>📦 Productos: ${totalProd}</span>
-                            <span>📊 Pedidos: ${totalPed}</span>
-                            <span style="color:var(--accent);">Ver Planilla ›</span>
+                        
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; border-top:1px solid var(--border); pt-top:6px; font-size:11px;">
+                            <span>📦 Prod: ${totalProd}</span>
+                            <button type="button" onclick="toggleSuscripcionDestacados('${emp.rut}')" style="width:auto; padding:5px 10px; font-size:10px; background:${destacadoActivo ? '#DC2626' : '#7C3AED'};">
+                                ${destacadoActivo ? 'Quitar Destacados' : 'Activar Destacados ($500)'}
+                            </button>
                         </div>
                     </div>
                 `;
             }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay empresas registradas.</p>';
 
             container.innerHTML = `
-                <div class="section-header"><span>Base de Datos de Comercios (${datos.baseEmpresas.length})</span></div>
+                <div class="section-header">
+                    <span>Comercios (${datos.baseEmpresas.length})</span>
+                    <button type="button" onclick="exportarExcelRol('empresas')" style="width:auto; padding:5px 10px; font-size:11px; background:var(--success);">📥 Exportar Excel</button>
+                </div>
                 ${htmlEmpresas}
             `;
         }
 
-        window.verDetalleEmpresaAdmin = function(rut) {
-            let datos = obtenerDatosGlobalesSistema();
-            let emp = datos.baseEmpresas.find(e => String(e.rut).trim() === String(rut).trim());
-            if (!emp) return;
-
-            let productosHtml = (emp.productos || []).map(p => `
-                <div style="display:flex; justify-content:space-between; font-size:12px; border-bottom:1px dashed var(--border); padding:6px 0;">
-                    <span><b>${p.nombre}</b> ${p.outlet ? '🔥(Outlet)' : ''}</span>
-                    <b style="color:var(--success);">$${p.precio}</b>
-                </div>
-            `).join('') || '<p style="font-size:12px; color:var(--text-muted);">Sin productos cargados.</p>';
-
-            let pedidosHtml = (emp.pedidos || []).map(p => `
-                <div style="font-size:12px; border-bottom:1px solid var(--border); padding:6px 0;">
-                    <div style="display:flex; justify-content:space-between;">
-                        <b>Pedido #${p.id}</b>
-                        <span style="color:var(--accent); font-weight:bold;">${p.estado || 'Recibido'}</span>
-                    </div>
-                    <span>Cliente: ${p.cliente} | Total: <b>$${p.total}</b></span>
-                </div>
-            `).join('') || '<p style="font-size:12px; color:var(--text-muted);">Sin movimientos registrados.</p>';
-
-            const container = document.getElementById('main-content-admin');
-            container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="mostrarListaEmpresasAdmin()">← Volver al Listado</button>
-                
-                <div class="card-metric" style="background:#F8FAFC;">
-                    <h3 style="margin:0 0 4px 0; font-size:17px; font-weight:800; color:var(--primary);">${emp.nombre}</h3>
-                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);"><b>RUT:</b> ${emp.rut} | <b>Giro:</b> ${emp.giro}</p>
-                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📞 Tel: ${emp.telefono} | 📍 ${emp.direccion}</p>
-                </div>
-
-                <div class="section-header"><span>📦 Catálogo de Productos (${emp.productos ? emp.productos.length : 0})</span></div>
-                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:10px; max-height:160px; overflow-y:auto; margin-bottom:14px;">
-                    ${productosHtml}
-                </div>
-
-                <div class="section-header"><span>📊 Movimientos y Órdenes (${emp.pedidos ? emp.pedidos.length : 0})</span></div>
-                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:10px; max-height:180px; overflow-y:auto;">
-                    ${pedidosHtml}
-                </div>
-            `;
+        window.toggleSuscripcionDestacados = function(rut) {
+            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+            let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
+            if (emp) {
+                emp.suscripcionDestacadosActiva = !emp.suscripcionDestacadosActiva;
+                localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+                window.dispatchEvent(new Event('storage'));
+                alert(`✅ Suscripción de $500 UYU ${emp.suscripcionDestacadosActiva ? 'activada' : 'desactivada'}.`);
+                mostrarListaEmpresasAdmin();
+            }
         };
 
         // ==========================================
-        // GESTIÓN DE CADETES
+        // GESTIÓN DE CADETES (HABILITAR / DESHABILITAR)
         // ==========================================
         function mostrarListaCadetesAdmin() {
             actualizarMenuActivoAdmin(3);
@@ -658,27 +490,47 @@
             const container = document.getElementById('main-content-admin');
 
             let htmlCadetes = datos.cadetes.map((c, index) => {
-                let idCadeteNum = c.idCadete || `CAD-00${index + 1}`;
+                let activo = c.activo !== false; // Por defecto activo
                 return `
-                    <div class="card-metric" style="border-left: 5px solid var(--secondary);">
+                    <div class="card-metric" style="border-left: 5px solid ${activo ? 'var(--success)' : 'var(--danger)'};">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--primary);">${c.nombre}</h4>
-                            <span style="font-size:10px; background:#FEF3C7; color:#B45309; padding:2px 6px; border-radius:4px; font-weight:700;">${idCadeteNum}</span>
+                            <span style="font-size:10px; background:${activo ? '#D1FAE5' : '#FEE2E2'}; color:${activo ? '#047857' : '#B91C1C'}; padding:2px 6px; border-radius:4px; font-weight:700;">${activo ? 'Habilitado' : 'Suspendido'}</span>
                         </div>
                         <p style="margin:4px 0 2px 0; font-size:12px; color:var(--text-muted);"><b>CI:</b> ${c.ci || 'Sin CI'} | <b>Tel:</b> ${c.telefono || 'Sin tel'}</p>
-                        <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">🛵 Vehículo: <b>${c.vehiculo || 'Moto'}</b> | Entregas: <b>${c.entregas ? c.entregas.length : 0}</b></p>
+                        <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">🛵 Vehículo: <b>${c.vehiculo || 'Moto'}</b></p>
+                        
+                        <div style="margin-top:8px; border-top:1px solid var(--border); pt-top:6px; text-align:right;">
+                            <button type="button" onclick="toggleEstadoCadete('${c.ci}')" style="width:auto; padding:5px 12px; font-size:11px; background:${activo ? 'var(--danger)' : 'var(--success)'};">
+                                ${activo ? '🚫 Deshabilitar Cadete' : '✓ Habilitar Cadete'}
+                            </button>
+                        </div>
                     </div>
                 `;
             }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay cadetes registrados.</p>';
 
             container.innerHTML = `
-                <div class="section-header"><span>Planilla de Cadetes (${datos.cadetes.length})</span></div>
+                <div class="section-header">
+                    <span>Cadetes (${datos.cadetes.length})</span>
+                    <button type="button" onclick="exportarExcelRol('cadetes')" style="width:auto; padding:5px 10px; font-size:11px; background:var(--success);">📥 Exportar Excel</button>
+                </div>
                 ${htmlCadetes}
             `;
         }
 
+        window.toggleEstadoCadete = function(ci) {
+            let base = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
+            let cad = base.find(c => String(c.ci).trim() === String(ci).trim());
+            if (cad) {
+                cad.activo = cad.activo === false ? true : false;
+                localStorage.setItem('lt_base_cadetes', JSON.stringify(base));
+                alert(`✅ Cadete ${cad.nombre} ha sido ${cad.activo ? 'habilitado' : 'deshabilitado'}.`);
+                mostrarListaCadetesAdmin();
+            }
+        };
+
         // ==========================================
-        // GESTIÓN DE CLIENTES
+        // GESTIÓN DE CLIENTES Y EXPORTACIÓN EXCEL
         // ==========================================
         function mostrarListaClientesAdmin() {
             actualizarMenuActivoAdmin(4);
@@ -688,57 +540,54 @@
             let htmlClientes = datos.clientes.map(cli => `
                 <div class="card-metric" style="border-left: 5px solid var(--success);">
                     <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:800; color:var(--primary);">${cli.nombre}</h4>
-                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📞 WhatsApp: <b>${cli.telefono}</b></p>
-                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📍 Dirección: ${cli.direccion || 'Montevideo'}</p>
+                    <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📞 Tel: <b>${cli.telefono}</b> | 📍 ${cli.direccion || 'Montevideo'}</p>
                 </div>
             `).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay clientes registrados.</p>';
 
             container.innerHTML = `
-                <div class="section-header"><span>Base de Datos de Clientes (${datos.clientes.length})</span></div>
+                <div class="section-header">
+                    <span>Clientes (${datos.clientes.length})</span>
+                    <button type="button" onclick="exportarExcelRol('clientes')" style="width:auto; padding:5px 10px; font-size:11px; background:var(--success);">📥 Exportar Excel</button>
+                </div>
                 ${htmlClientes}
             `;
         }
 
-        // ==========================================
-        // CAMPAÑAS DE OFERTAS INTELIGENTES (IA)
-        // ==========================================
-        function mostrarCampañasIAAdmin() {
-            actualizarMenuActivoAdmin(5);
-            const container = document.getElementById('main-content-admin');
+        window.exportarExcelRol = function(tipo) {
+            let datos = obtenerDatosGlobalesSistema();
+            let csvContent = "data:text/csv;charset=utf-8,";
+            let filename = `base_datos_${tipo}_lotengo.csv`;
 
-            container.innerHTML = `
-                <div class="section-header"><span>🎯 Motor de Ofertas e IA</span></div>
-                <div class="card-metric" style="border-left: 5px solid #7C3AED;">
-                    <div style="font-size: 10px; font-weight: 900; background: #FAF5FF; color: #7C3AED; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-bottom: 8px; border:1px solid #C084FC;">ALGORITMO DE RECOMENDACIÓN</div>
-                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 900;">Notificador de Ofertas Inteligente</h3>
-                    <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 14px;">El sistema analiza el historial de búsqueda de los clientes en Montevideo y genera campañas push dirigidas.</p>
+            if (tipo === 'empresas') {
+                csvContent += "RUT,Nombre,Giro,Telefono,Direccion\r\n";
+                datos.baseEmpresas.forEach(e => {
+                    csvContent += `"${e.rut}","${e.nombre}","${e.giro || ''}","${e.telefono || ''}","${e.direccion || ''}"\r\n`;
+                });
+            } else if (tipo === 'cadetes') {
+                csvContent += "CI,Nombre,Telefono,Vehiculo,Estado\r\n";
+                datos.cadetes.forEach(c => {
+                    let estadoStr = c.activo !== false ? 'Habilitado' : 'Suspendido';
+                    csvContent += `"${c.ci}","${c.nombre}","${c.telefono || ''}","${c.vehiculo || 'Moto'}","${estadoStr}"\r\n`;
+                });
+            } else if (tipo === 'clientes') {
+                csvContent += "Nombre,Telefono,Direccion\r\n";
+                datos.clientes.forEach(cl => {
+                    csvContent += `"${cl.nombre}","${cl.telefono || ''}","${cl.direccion || ''}"\r\n`;
+                });
+            }
 
-                    <label>Título de la Campaña / Oferta:</label>
-                    <input type="text" id="campaniaTitulo" placeholder="Ej: ¡20% OFF en Chivitos y Hamburguesas!">
-
-                    <label>Segmento por Historial / Categoría:</label>
-                    <select id="campaniaSegmento">
-                        <option value="Gastronomía">🍔 Interesados en Gastronomía</option>
-                        <option value="Supermercado">🛒 Interesados en Supermercados</option>
-                        <option value="Outlet">🔥 Alertas Zona Outlet</option>
-                        <option value="Todos">📢 Todos los Clientes Activos</option>
-                    </select>
-
-                    <button type="button" onclick="lanzarNotificacionOfertas()" style="background:#7C3AED; font-weight:800; margin-top:6px;">🚀 Enviar Campaña Push Masiva</button>
-                </div>
-            `;
-        }
-
-        window.lanzarNotificacionOfertas = function() {
-            let titulo = document.getElementById('campaniaTitulo').value.trim();
-            let segmento = document.getElementById('campaniaSegmento').value;
-            if (!titulo) { alert("⚠️ Ingresá el título de la campaña."); return; }
-
-            alert(`✅ ¡Campaña enviada con éxito!\n\nSegmento: [${segmento}]\nMensaje: "${titulo}"\nLos clientes recibirán la recomendación basada en su historial.`);
+            let encodedUri = encodeURI(csvContent);
+            let link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            alert(`✅ Base de datos de ${tipo} exportada correctamente.`);
         };
 
         // ==========================================
-        // TABLERO KANBAN DE ÓRDENES POR SUBESTADOS (ADMIN)
+        // CONTROL Y FORZADO DE ÓRDENES
         // ==========================================
         function mostrarGestionPedidosAdmin() {
             actualizarMenuActivoAdmin(1);
@@ -746,128 +595,114 @@
             const container = document.getElementById('main-content-admin');
 
             let alertasActivas = datos.alertasCadetes.filter(a => !a.resuelta);
-            
             let htmlAlertasAcordeon = alertasActivas.map(alerta => {
                 let estaAbierto = alertasDesplegadas[alerta.id] || false;
+                let pedidoRef = datos.listaPedidosGlobales.find(p => String(p.id).trim() === String(alerta.idPedido).trim());
+                let empresaNombre = pedidoRef ? pedidoRef.comercioNombre : 'Comercio General';
+
                 return `
-                    <div style="background: #FEF2F2; border: 1px solid #EF4444; border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <div class="alerta-parpadeante" style="border-radius: var(--radius); margin-bottom: 8px; overflow: hidden;">
                         <button type="button" onclick="toggleAlertaDesplegable(${alerta.id})" style="background: #FEE2E2; color: #991B1B; border: none; padding: 10px 14px; width: 100%; text-align: left; font-weight: 700; font-size: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                            <span>🚨 ALERTA: Pedido #${alerta.idPedido || 'N/A'} - Cadete: ${alerta.nombreCadete}</span>
-                            <span>${estaAbierto ? '▲ Ocultar' : '▼ Ver Detalle'}</span>
+                            <span>🚨 ALERTA: Pedido #${alerta.idPedido} - Cadete: ${alerta.nombreCadete}</span>
+                            <span>${estaAbierto ? '▲ Ocultar' : '▼ Ver'}</span>
                         </button>
-
                         <div style="padding: 12px; display: ${estaAbierto ? 'block' : 'none'}; background: #FFFFFF; border-top: 1px solid #FECACA;">
-                            <p style="margin:2px 0; font-size:12px; color:#7F1D1D;">👤 <b>Cadete afectado:</b> ${alerta.nombreCadete} (<a href="tel:${alerta.telefonoCadete}" style="color:#2563EB; font-weight:bold;">📞 Llamar: ${alerta.telefonoCadete}</a>)</p>
-                            <p style="margin:2px 0; font-size:12px; color:#7F1D1D;">📍 <b>Ubicación del incidente:</b> ${alerta.ubicacion || 'Zona de reparto'}</p>
-                            <p style="margin:2px 0; font-size:12px; color:#7F1D1D;">🕒 <b>Reportado a las:</b> ${new Date(alerta.timestamp).toLocaleTimeString()}</p>
-                            
-                            <div style="background: #F8FAFC; border: 1px solid var(--border); padding: 8px; border-radius: 6px; margin: 8px 0; font-size: 12px;">
-                                <p style="margin:0 0 4px 0; font-weight:700; color:var(--primary);">💬 Comunicación automática con el Cliente:</p>
-                                <button type="button" onclick="notificarClienteDemora(${alerta.idPedido})" style="background: var(--accent); font-size: 11px; padding: 6px; margin-bottom: 4px;">📲 Enviar Notificación de Auxilio al Cliente</button>
-                            </div>
-
-                            <div style="display: flex; gap: 6px; margin-top: 8px;">
-                                <button type="button" onclick="liberarPedidoParaOtroCadete(${alerta.idPedido})" style="background: #D97706; font-size: 11px; padding: 6px; flex:1;">🔄 Liberar al Pool</button>
-                                <button type="button" onclick="resolverAlertaCadete(${alerta.id})" style="background: var(--success); font-size: 11px; padding: 6px; flex:1;">✓ Resolver Incidente</button>
-                            </div>
+                            <p style="margin:2px 0; font-size:12px;">🏪 Empresa: ${empresaNombre}</p>
+                            <button type="button" onclick="resolverAlertaCadete(${alerta.id})" style="background: var(--success); font-size: 11px; padding: 6px; margin-top:6px;">✓ Resolver Incidente</button>
                         </div>
                     </div>
                 `;
             }).join('');
 
-            // Clasificar órdenes en columnas Kanban según su subestado
-            let colRecibidos = [];
-            let colEnRuta = [];
-            let colEntregados = [];
-            let colCancelados = [];
+            let pedidosFiltrados = datos.listaPedidosGlobales.filter(p => {
+                let st = (p.estado || '').toLowerCase();
+                let esCancelada = p.esCancelada || st.includes('cancelado');
+                let esFinalizado = p.esFinalizado || st.includes('entregado') || st.includes('cerrado');
 
-            datos.listaPedidosGlobales.forEach(p => {
-                let st = (p.estado || '').toLowerCase().trim();
-                if (p.esCancelada || st.includes('cancelado')) {
-                    colCancelados.push(p);
-                } else if (st.includes('entregado') || st.includes('cerrado')) {
-                    colEntregados.push(p);
-                } else if (st.includes('listo') || st.includes('ruta') || st.includes('camino') || st.includes('retirar')) {
-                    colEnRuta.push(p);
-                } else {
-                    colRecibidos.push(p);
-                }
+                if (filtroTabActualAdmin === 'activos' && (esCancelada || esFinalizado)) return false;
+                if (filtroTabActualAdmin === 'finalizados' && !esFinalizado) return false;
+                if (filtroTabActualAdmin === 'cancelados' && !esCancelada) return false;
+                return true;
             });
 
-            container.innerHTML = `
-                ${htmlAlertasAcordeon ? `<div class="section-header" style="color:var(--danger); margin-top:0;"><span>🚨 Panel de Alertas Logísticas</span></div>${htmlAlertasAcordeon}` : ''}
-                <div class="section-header"><span>Tablero Kanban de Órdenes en Tiempo Real</span></div>
+            pedidosFiltrados.sort((a, b) => b.id - a.id);
 
-                <div class="kanban-admin-columns">
-                    <!-- Columna 1: Recibidas / En Preparación -->
-                    <div class="kanban-admin-column">
-                        <div class="kanban-admin-column-title" style="color: #0369A1;">
-                            <span>📥 Recibidas / En Preparación</span>
-                            <span style="background:#E0F2FE; color:#0369A1; padding:2px 8px; border-radius:10px; font-size:11px;">${colRecibidos.length}</span>
-                        </div>
-                        ${renderizarTarjetasColumnaAdmin(colRecibidos)}
-                    </div>
-
-                    <!-- Columna 2: Listas para Retirar / En Ruta -->
-                    <div class="kanban-admin-column">
-                        <div class="kanban-admin-column-title" style="color: #D97706;">
-                            <span>🛵 Listas para Retirar / En Ruta</span>
-                            <span style="background:#FEF3C7; color:#D97706; padding:2px 8px; border-radius:10px; font-size:11px;">${colEnRuta.length}</span>
-                        </div>
-                        ${renderizarTarjetasColumnaAdmin(colEnRuta)}
-                    </div>
-
-                    <!-- Columna 3: Entregadas y Cerradas -->
-                    <div class="kanban-admin-column">
-                        <div class="kanban-admin-column-title" style="color: #059669;">
-                            <span>✅ Entregadas / Cerradas</span>
-                            <span style="background:#ECFDF5; color:#059669; padding:2px 8px; border-radius:10px; font-size:11px;">${colEntregados.length}</span>
-                        </div>
-                        ${renderizarTarjetasColumnaAdmin(colEntregados)}
-                    </div>
-
-                    <!-- Columna 4: Canceladas -->
-                    <div class="kanban-admin-column">
-                        <div class="kanban-admin-column-title" style="color: #DC2626;">
-                            <span>❌ Canceladas / Anuladas</span>
-                            <span style="background:#FEE2E2; color:#DC2626; padding:2px 8px; border-radius:10px; font-size:11px;">${colCancelados.length}</span>
-                        </div>
-                        ${renderizarTarjetasColumnaAdmin(colCancelados)}
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderizarTarjetasColumnaAdmin(lista) {
-            if (lista.length === 0) return '<p style="text-align:center; color:var(--text-muted); font-size:11px; padding:10px;">Sin órdenes en esta columna.</p>';
-
-            return lista.map(p => {
-                let st = (p.estado || '').toLowerCase();
-                let esFinalizado = st.includes('entregado') || st.includes('cerrado') || st.includes('cancelado');
-
+            let htmlPedidos = pedidosFiltrados.map(p => {
+                let esActivo = !p.esCancelada && !p.esFinalizado;
                 return `
                     <div class="pedido-admin-card" style="${p.esCancelada ? 'border-left-color: var(--danger); background: #FFF5F5;' : ''}">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                            <b style="font-size:13px; color:var(--primary);">Orden #${p.id}</b>
-                            <span style="font-size:10px; font-weight:700; background:#E2E8F0; padding:2px 6px; border-radius:4px;">${p.estado || 'Activo'}</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <b style="font-size:14px; color:var(--primary);">Orden #${p.id}</b>
+                            <span style="font-size:11px; font-weight:700; background:#E2E8F0; padding:2px 6px; border-radius:4px;">${p.estado || 'Activo'}</span>
                         </div>
-                        <p style="margin:2px 0; font-size:11px;"><b>Comercio:</b> ${p.comercioNombre}</p>
-                        <p style="margin:2px 0; font-size:11px;"><b>Cliente:</b> ${p.cliente} (<a href="tel:${p.telefonoCliente}" style="color:var(--accent);">📞 ${p.telefonoCliente || 'Sin tel'}</a>)</p>
-                        <p style="margin:2px 0; font-size:11px;"><b>Destino:</b> ${p.direccion}</p>
-                        <p style="margin:2px 0; font-size:11px; color:var(--success);"><b>Total:</b> $${p.total} | <b>PIN:</b> ${p.codigoVerificacion}</p>
-
-                        ${!esFinalizado ? `
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:4px; margin-top:8px; border-top:1px dashed var(--border); padding-top:6px;">
-                                <button type="button" onclick="forzarRetiroAdmin('${p.comercioRut}',${p.id})" style="background:var(--warning); font-size:10px; padding:4px;">Forzar Retiro</button>
-                                <button type="button" onclick="forzarEntregaAdmin('${p.comercioRut}',${p.id})" style="background:var(--success); font-size:10px; padding:4px;">Forzar Entrega</button>
-                                <button type="button" onclick="liberarPedidoParaOtroCadete(${p.id})" style="background:#D97706; font-size:10px; padding:4px;">🔄 Liberar Pool</button>
-                                <button type="button" onclick="transferirPedidoACadetePuntual(${p.id})" style="background:#2563EB; font-size:10px; padding:4px;">👤 Auxilio</button>
-                                <button type="button" onclick="cancelarOrdenAdmin('${p.comercioRut}',${p.id})" style="background:var(--danger); font-size:10px; padding:4px; grid-column: span 2;">Cancelar Orden</button>
+                        <p style="margin:2px 0; font-size:12px;">🏪 Comercio: ${p.comercioNombre}</p>
+                        <p style="margin:2px 0; font-size:12px;">🛵 Cadete: ${p.cadeteNombre}</p>
+                        <p style="margin:2px 0; font-size:12px; color:var(--success);"><b>Total:</b> $${p.total} | <b>PIN:</b> ${p.codigoVerificacion}</p>
+                        
+                        ${esActivo ? `
+                            <div style="display:flex; gap:6px; margin-top:8px; border-top:1px solid var(--border); pt-top:6px;">
+                                <button type="button" onclick="forzarCierreOrdenAdmin(${p.id}, '${p.comercioRut}')" style="background:var(--success); padding:6px; font-size:11px;">✓ Forzar Cierre</button>
+                                <button type="button" onclick="forzarCancelacionOrdenAdmin(${p.id}, '${p.comercioRut}')" style="background:var(--danger); padding:6px; font-size:11px;">✕ Forzar Cancelación</button>
                             </div>
                         ` : ''}
                     </div>
                 `;
-            }).join('');
+            }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay órdenes en esta bandeja.</p>';
+
+            container.innerHTML = `
+                <div id="bandera-vista-ordenes"></div>
+                ${htmlAlertasAcordeon ? `<div class="section-header" style="color:var(--danger); margin-top:0;"><span>🚨 Alertas Activas</span></div>${htmlAlertasAcordeon}` : ''}
+                
+                <div class="section-header"><span>Control y Forzado de Órdenes</span></div>
+                <div style="display:flex; gap:6px; margin-bottom:10px;">
+                    <button type="button" onclick="cambiarTabAdmin('activos')" style="flex:1; padding:8px; font-size:11px; background:${filtroTabActualAdmin === 'activos' ? 'var(--accent)' : '#E2E8F0'}; color:${filtroTabActualAdmin === 'activos' ? '#fff' : '#0F172A'};">⏳ Activos</button>
+                    <button type="button" onclick="cambiarTabAdmin('finalizados')" style="flex:1; padding:8px; font-size:11px; background:${filtroTabActualAdmin === 'finalizados' ? 'var(--success)' : '#E2E8F0'}; color:${filtroTabActualAdmin === 'finalizados' ? '#fff' : '#0F172A'};">✅ Finalizados</button>
+                    <button type="button" onclick="cambiarTabAdmin('cancelados')" style="flex:1; padding:8px; font-size:11px; background:${filtroTabActualAdmin === 'cancelados' ? 'var(--danger)' : '#E2E8F0'}; color:${filtroTabActualAdmin === 'cancelados' ? '#fff' : '#0F172A'};">❌ Cancelados</button>
+                </div>
+                ${htmlPedidos}
+            `;
+        }
+
+        window.cambiarTabAdmin = function(tab) {
+            filtroTabActualAdmin = tab;
+            mostrarGestionPedidosAdmin();
+        };
+
+        window.forzarCierreOrdenAdmin = function(idPedido, rutComercio) {
+            if (!confirm(`¿Estás seguro de forzar el CIERRE de la orden #${idPedido}?`)) return;
+            actualizarEstadoOrdenGlobal(idPedido, rutComercio, 'Entregado y Cerrado por Admin');
+            alert("✅ Orden cerrada y archivada correctamente.");
+            mostrarGestionPedidosAdmin();
+        };
+
+        window.forzarCancelacionOrdenAdmin = function(idPedido, rutComercio) {
+            if (!confirm(`¿Estás seguro de CANCELAR y sacar del sistema la orden #${idPedido}?`)) return;
+            actualizarEstadoOrdenGlobal(idPedido, rutComercio, 'Cancelado por Admin');
+            alert("❌ Orden cancelada y retirada de los flujos activos.");
+            mostrarGestionPedidosAdmin();
+        };
+
+        function actualizarEstadoOrdenGlobal(idPedido, rutComercio, nuevoEstado) {
+            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+            base.forEach(emp => {
+                if (emp.pedidos) {
+                    emp.pedidos.forEach(p => {
+                        if (String(p.id).trim() === String(idPedido).trim()) {
+                            p.estado = nuevoEstado;
+                        }
+                    });
+                }
+            });
+            localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+
+            let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            pedidosCadete.forEach(pc => {
+                if (String(pc.id).trim() === String(idPedido).trim()) {
+                    pc.estado = nuevoEstado;
+                }
+            });
+            localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+            window.dispatchEvent(new Event('storage'));
         }
 
         window.toggleAlertaDesplegable = function(idAlerta) {
@@ -875,110 +710,36 @@
             mostrarGestionPedidosAdmin();
         };
 
-        window.notificarClienteDemora = function(idPedido) {
-            if (!idPedido) { alert("⚠️ No hay ID de pedido asociado."); return; }
-            let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
-            let pCliente = pedidosCliente.find(p => Number(p.id) === Number(idPedido));
-            if (pCliente) {
-                pCliente.estadoAvisoDemora = "Su pedido está demorado por inconveniente logístico menor. Reasignado a cadete de auxilio en camino.";
-                localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
-                window.dispatchEvent(new Event('storage'));
-                alert(`✅ Notificación enviada con éxito al cliente #${idPedido}.`);
-            } else {
-                alert("✅ Notificación registrada para el cliente del pedido #" + idPedido);
-            }
-        };
-
         window.resolverAlertaCadete = function(idAlerta) {
             let alertas = JSON.parse(localStorage.getItem('lt_alertas_cadetes')) || [];
-            alertas = alertas.map(a => {
-                if (Number(a.id) === Number(idAlerta)) {
-                    a.resuelta = true;
-                }
-                return a;
-            });
+            alertas = alertas.map(a => { if (Number(a.id) === Number(idAlerta)) a.resuelta = true; return a; });
             localStorage.setItem('lt_alertas_cadetes', JSON.stringify(alertas));
             window.dispatchEvent(new Event('storage'));
-            alert("✅ Alerta marcada como resuelta.");
+            alert("✅ Alerta resuelta.");
             mostrarGestionPedidosAdmin();
         };
 
-        window.liberarPedidoParaOtroCadete = function(idPedido) {
-            if (confirm(`¿Liberar la orden #${idPedido} al pool general para que la tome otro cadete?`)) {
-                let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
-                pedidosCadete = pedidosCadete.map(pc => {
-                    if (Number(pc.id) === Number(idPedido)) {
-                        pc.estado = 'Disponible para retirar';
-                        pc.cadeteAsignado = null;
-                    }
-                    return pc;
-                });
-                localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
-                window.dispatchEvent(new Event('storage'));
-                alert(`✅ Orden #${idPedido} devuelta al pool general.`);
-                mostrarGestionPedidosAdmin();
-            }
-        };
+        function mostrarCampañasIAAdmin() {
+            actualizarMenuActivoAdmin(5);
+            const container = document.getElementById('main-content-admin');
 
-        window.transferirPedidoACadetePuntual = function(idPedido) {
-            let auxilio = prompt("Ingrese el nombre o ID del cadete de auxilio:");
-            if (auxilio && auxilio.trim() !== "") {
-                let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
-                pedidosCadete = pedidosCadete.map(pc => {
-                    if (Number(pc.id) === Number(idPedido)) {
-                        pc.cadeteAsignado = auxilio.trim();
-                        pc.estado = `Asignado a auxilio: ${auxilio.trim()}`;
-                    }
-                    return pc;
-                });
-                localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
-                window.dispatchEvent(new Event('storage'));
-                alert(`✅ Orden #${idPedido} transferida al cadete: ${auxilio.trim()}`);
-                mostrarGestionPedidosAdmin();
-            }
-        };
-
-        window.forzarRetiroAdmin = function(rutComercio, idPedido) {
-            if (confirm(`¿Forzar el estado de RETIRO para la orden #${idPedido}?`)) {
-                actualizarEstadoOrdenAdmin(rutComercio, idPedido, 'Listo para Retirar (En Ruta/Cadete)');
-            }
-        };
-
-        window.forzarEntregaAdmin = function(rutComercio, idPedido) {
-            if (confirm(`¿Forzar la ENTREGA y cierre definitivo de la orden #${idPedido}?`)) {
-                actualizarEstadoOrdenAdmin(rutComercio, idPedido, 'Entregado y Cerrado');
-            }
-        };
-
-        window.cancelarOrdenAdmin = function(rutComercio, idPedido) {
-            if (confirm(`⚠️ ¿ESTÁ SEGURO DE CANCELAR LA ORDEN #${idPedido}? Esta acción anulará el cobro.`)) {
-                actualizarEstadoOrdenAdmin(rutComercio, idPedido, 'Cancelado por Admin');
-            }
-        };
-
-        function actualizarEstadoOrdenAdmin(rutComercio, idPedido, nuevoEstado) {
-            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = base.find(e => String(e.rut).trim() === String(rutComercio).trim());
-            
-            if (emp && emp.pedidos) {
-                let pedido = emp.pedidos.find(p => Number(p.id) === Number(idPedido));
-                if (pedido) {
-                    pedido.estado = nuevoEstado;
-                    localStorage.setItem('lt_base_empresas', JSON.stringify(base));
-
-                    let pedidosCliente = JSON.parse(localStorage.getItem('lt_pedidos_cliente')) || [];
-                    let pCliente = pedidosCliente.find(p => Number(p.id) === Number(idPedido));
-                    if (pCliente) {
-                        pCliente.estado = nuevoEstado;
-                        localStorage.setItem('lt_pedidos_cliente', JSON.stringify(pedidosCliente));
-                    }
-
-                    window.dispatchEvent(new Event('storage'));
-                    alert(`✅ Orden #${idPedido} actualizada correctamente a: "${nuevoEstado}"`);
-                    mostrarGestionPedidosAdmin();
-                }
-            }
+            container.innerHTML = `
+                <div class="section-header"><span>🎯 Motor de Ofertas e IA</span></div>
+                <div class="card-metric" style="border-left: 5px solid #7C3AED;">
+                    <div style="font-size: 10px; font-weight: 900; background: #FAF5FF; color: #7C3AED; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-bottom: 8px; border:1px solid #C084FC;">ADS Y DESTACADOS</div>
+                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 900;">Notificador de Ofertas Push</h3>
+                    <label>Título de la Campaña:</label>
+                    <input type="text" id="campaniaTitulo" placeholder="Ej: ¡20% OFF en comercios destacados esta semana!">
+                    <button type="button" onclick="lanzarNotificacionOfertas()" style="background:#7C3AED; font-weight:800; margin-top:6px;">🚀 Enviar Campaña Push</button>
+                </div>
+            `;
         }
+
+        window.lanzarNotificacionOfertas = function() {
+            let titulo = document.getElementById('campaniaTitulo').value.trim();
+            if (!titulo) { alert("⚠️ Ingresá el título."); return; }
+            alert(`✅ ¡Campaña enviada con éxito!\n"${titulo}"`);
+        };
 
         function mostrarLiquidacionEmpresas() {
             actualizarMenuActivoAdmin(6);
@@ -987,28 +748,24 @@
 
             let filasEmpresas = datos.baseEmpresas.map(emp => {
                 let brutoEmpresa = 0;
-                let pedidosComercio = emp.pedidos || [];
-                
-                pedidosComercio.forEach(p => {
-                    let st = (p.estado || '').toLowerCase();
-                    if (!st.includes('cancelado')) {
+                (emp.pedidos || []).forEach(p => {
+                    if (!String(p.estado || '').toLowerCase().includes('cancelado')) {
                         brutoEmpresa += (parseFloat(p.total) || 0);
                     }
                 });
-
                 let comision = brutoEmpresa * 0.10;
                 let netoLiquido = brutoEmpresa - comision;
 
                 return `
                     <tr>
                         <td><b>${emp.nombre}</b><br><span style="font-size:10px; color:var(--text-muted);">${emp.rut}</span></td>
-                        <td style="text-align:center;">${pedidosComercio.length}</td>
+                        <td style="text-align:center;">${(emp.pedidos || []).length}</td>
                         <td style="text-align:right;">$${brutoEmpresa.toFixed(2)}</td>
                         <td style="text-align:right; color:var(--danger);">-$${comision.toFixed(2)}</td>
                         <td style="text-align:right; font-weight:700; color:var(--success);">$${netoLiquido.toFixed(2)}</td>
                     </tr>
                 `;
-            }).join('') || '<tr><td colspan="5" style="text-align:center; padding:15px; color:var(--text-muted);">No hay comercios registrados.</td></tr>';
+            }).join('') || '<tr><td colspan="5" style="text-align:center; padding:15px; color:var(--text-muted);">Sin comercios.</td></tr>';
 
             container.innerHTML = `
                 <div class="section-header"><span>Liquidación a Comercios (Comisión 10%)</span></div>
@@ -1023,19 +780,15 @@
                                 <th style="text-align:right;">Neto</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            ${filasEmpresas}
-                        </tbody>
+                        <tbody>${filasEmpresas}</tbody>
                     </table>
                 </div>
             `;
         }
 
         function actualizarMenuActivoAdmin(index) {
-            const botones = document.querySelectorAll('.bottom-nav .nav-item');
-            botones.forEach((btn, idx) => {
-                if (idx === index) btn.classList.add('active');
-                else btn.classList.remove('active');
+            document.querySelectorAll('.bottom-nav .nav-item').forEach((btn, idx) => {
+                btn.classList.toggle('active', idx === index);
             });
         }
     </script>
