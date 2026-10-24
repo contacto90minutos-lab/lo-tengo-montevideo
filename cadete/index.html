@@ -634,6 +634,9 @@
                     let pedidosRemotos = await response.json();
                     if (pedidosRemotos && Array.isArray(pedidosRemotos)) {
                         let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+                        let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+                        
+                        // Sincronizar con baseEmpresas[0]
                         if (baseEmpresas.length > 0) {
                             let emp = baseEmpresas[0];
                             let mapaLocal = new Map();
@@ -641,10 +644,16 @@
                             pedidosRemotos.forEach(pR => mapaLocal.set(String(pR.id).trim(), pR));
                             emp.pedidos = Array.from(mapaLocal.values());
                             localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
-
-                            let cadete = obtenerCadeteActualizado();
-                            if (cadete) revisarNuevosPedidosCadete(true);
                         }
+
+                        // Sincronizar con lt_pedidos_activos
+                        let mapaActivos = new Map();
+                        pedidosActivos.forEach(p => mapaActivos.set(String(p.id).trim(), p));
+                        pedidosRemotos.forEach(pR => mapaActivos.set(String(pR.id).trim(), pR));
+                        localStorage.setItem('lt_pedidos_activos', JSON.stringify(Array.from(mapaActivos.values())));
+
+                        let cadete = obtenerCadeteActualizado();
+                        if (cadete) revisarNuevosPedidosCadete(true);
                     }
                 }
             } catch (e) {}
@@ -769,57 +778,62 @@
             return base.find(c => String(c.ci).trim() === String(sesion.ci).trim()) || sesion;
         }
 
-        // UNIFICACIÓN Y CORRECCIÓN DE DATOS (EVITA CRUCE CON COMERCIOS EN EXPRESS)
+        // UNIFICACIÓN Y CORRECCIÓN DE DATOS (CONSOLIDACIÓN DE TODAS LAS FUENTES)
         function obtenerPedidosDisponiblesGlobales() {
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
             let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let listaConsolidada = [...pedidosCadete];
+            let listaConsolidada = [...pedidosCadete, ...pedidosActivos];
 
             baseEmpresas.forEach(emp => {
                 if (emp.pedidos) {
                     emp.pedidos.forEach(p => {
-                        let st = (p.estado || '').toLowerCase().trim();
-                        let esPedidoAbierto = !p.cadeteAsignado && (
-                            st.includes('listo para retirar') || 
-                            st.includes('pago_confirmado') || 
-                            st.includes('buscando cadete') || 
-                            st.includes('cadetería') ||
-                            st.includes('recibido')
-                        );
-
-                        if (esPedidoAbierto) {
-                            let tipo = p.tipoPedido;
-                            if (!tipo) {
-                                if (p.esTresCruces || (p.direccion || '').toLowerCase().includes('tres cruces')) tipo = 'tres_cruces';
-                                else if (!p.rutComercio || (p.empresaNombre || '').toLowerCase().includes('cadeteria express')) tipo = 'express';
-                                else tipo = 'comercio';
-                            }
-
-                            let origenText = p.direccionOrigen || (tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[0].replace('Origen:','').trim() : 'Montevideo') : emp.direccion);
-                            let destinoText = tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[1].replace('Destino:','').trim() : p.direccion) : p.direccion;
-                            let nombreComercio = tipo === 'express' ? (p.empresaNombre || 'Cadetería Express Mvd') : (emp.nombre || 'Comercio Aliado');
-
-                            listaConsolidada.push({
-                                id: p.id,
-                                tipoPedido: tipo,
-                                comercio: nombreComercio,
-                                rutComercio: p.rutComercio || emp.rut || '000000',
-                                direccionComercio: origenText,
-                                cliente: p.cliente || 'Cliente Montevideo',
-                                telefonoCliente: p.telefonoCliente || 'Sin tel',
-                                direccionCliente: destinoText,
-                                total: p.total,
-                                gananciaCadete: p.gananciaCadete || Math.round((p.total || 200) * 0.7),
-                                pinSeguridad: p.pinSeguridad || p.codigoVerificacion,
-                                estado: 'Disponible para retirar'
-                            });
+                        let tipo = p.tipoPedido;
+                        if (!tipo) {
+                            if (p.esTresCruces || (p.direccion || '').toLowerCase().includes('tres cruces')) tipo = 'tres_cruces';
+                            else if (!p.rutComercio || (p.empresaNombre || '').toLowerCase().includes('cadeteria express')) tipo = 'express';
+                            else tipo = 'comercio';
                         }
+
+                        let origenText = p.direccionOrigen || (tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[0].replace('Origen:','').trim() : 'Montevideo') : emp.direccion);
+                        let destinoText = tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[1].replace('Destino:','').trim() : p.direccion) : p.direccion;
+                        let nombreComercio = tipo === 'express' ? (p.empresaNombre || 'Cadetería Express Mvd') : (emp.nombre || 'Comercio Aliado');
+
+                        listaConsolidada.push({
+                            id: p.id,
+                            tipoPedido: tipo,
+                            comercio: nombreComercio,
+                            rutComercio: p.rutComercio || emp.rut || '000000',
+                            direccionComercio: origenText,
+                            cliente: p.cliente || 'Cliente Montevideo',
+                            telefonoCliente: p.telefonoCliente || 'Sin tel',
+                            direccionCliente: destinoText,
+                            total: p.total,
+                            gananciaCadete: p.gananciaCadete || Math.round((p.total || 200) * 0.7),
+                            pinSeguridad: p.pinSeguridad || p.codigoVerificacion,
+                            estado: p.estado || 'Disponible para retirar',
+                            cadeteAsignado: p.cadeteAsignado,
+                            ciCadete: p.ciCadete
+                        });
                     });
                 }
             });
 
             return Array.from(new Map(listaConsolidada.map(item => [String(item.id).trim(), item])).values())
-                        .filter(p => !p.cadeteAsignado || p.cadeteAsignado === '');
+                        .filter(p => {
+                            let st = (p.estado || '').toLowerCase().trim();
+                            let noAsignado = !p.cadeteAsignado || p.cadeteAsignado === '';
+                            let esAbierto = noAsignado && (
+                                st.includes('listo para retirar') || 
+                                st.includes('pago_confirmado') || 
+                                st.includes('buscando cadete') || 
+                                st.includes('cadetería') ||
+                                st.includes('recibido') ||
+                                st === '' ||
+                                st.includes('en espera')
+                            );
+                            return esAbierto;
+                        });
         }
 
         function revisarNuevosPedidosCadete(activarAlertaSonora) {
@@ -875,22 +889,93 @@
 
         window.tomarPedidoCadete = async function(idPedido) {
             let sesion = obtenerCadeteActualizado();
+            if (!sesion) { alert("⚠️ Iniciá sesión como cadete."); return; }
+
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+
             let disponibles = obtenerPedidosDisponiblesGlobales();
             let itemACopiar = disponibles.find(p => String(p.id).trim() === String(idPedido).trim());
 
+            if (!itemACopiar) {
+                let found = pedidosActivos.find(p => String(p.id).trim() === String(idPedido).trim());
+                if (!found && baseEmpresas.length > 0 && baseEmpresas[0].pedidos) {
+                    found = baseEmpresas[0].pedidos.find(p => String(p.id).trim() === String(idPedido).trim());
+                }
+                if (found) {
+                    itemACopiar = {
+                        id: found.id,
+                        tipoPedido: found.tipoPedido || 'express',
+                        comercio: found.empresaNombre || found.comercio || 'LO TENGO',
+                        rutComercio: found.rutComercio || '000000',
+                        direccionComercio: found.direccionOrigen || found.direccion || 'Montevideo',
+                        cliente: found.cliente || 'Cliente Montevideo',
+                        telefonoCliente: found.telefonoCliente || '099000000',
+                        direccionCliente: found.direccion || 'Montevideo',
+                        total: found.total || 0,
+                        gananciaCadete: found.gananciaCadete || Math.round((found.total || 200) * 0.7),
+                        pinSeguridad: found.pinSeguridad || found.codigoVerificacion || '1234'
+                    };
+                }
+            }
+
             if (itemACopiar) {
-                // Estado inicial del ciclo de trabajo
                 itemACopiar.estado = 'En camino a origen';
                 itemACopiar.cadeteAsignado = sesion.nombre;
                 itemACopiar.ciCadete = sesion.ci;
-                
+
+                // 1. Guardar en lt_pedidos_cadete
                 let pIndex = pedidosCadete.findIndex(p => String(p.id).trim() === String(idPedido).trim());
                 if (pIndex !== -1) pedidosCadete[pIndex] = itemACopiar;
                 else pedidosCadete.push(itemACopiar);
+                localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+
+                // 2. Guardar en lt_pedidos_activos
+                let actIndex = pedidosActivos.findIndex(p => String(p.id).trim() === String(idPedido).trim());
+                if (actIndex !== -1) {
+                    pedidosActivos[actIndex].estado = 'En camino a origen';
+                    pedidosActivos[actIndex].cadeteAsignado = sesion.nombre;
+                    pedidosActivos[actIndex].ciCadete = sesion.ci;
+                } else {
+                    pedidosActivos.push(itemACopiar);
+                }
+                localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidosActivos));
+
+                // 3. Guardar en baseEmpresas
+                if (baseEmpresas.length > 0 && baseEmpresas[0].pedidos) {
+                    let empP = baseEmpresas[0].pedidos.find(p => String(p.id).trim() === String(idPedido).trim());
+                    if (empP) {
+                        empP.estado = 'En camino a origen';
+                        empP.cadeteAsignado = sesion.nombre;
+                        empP.ciCadete = sesion.ci;
+                    } else {
+                        baseEmpresas[0].pedidos.push(itemACopiar);
+                    }
+                    localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
+                }
+
+                // 4. Sincronizar con servidor backend
+                try {
+                    await fetch(`${BACKEND_URL}/api/pedidos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(itemACopiar)
+                    });
+                } catch(e) {}
+
+                if (socket && socket.connected) {
+                    socket.emit('cambiar_estado_pedido', { 
+                        pedidoId: idPedido, 
+                        estado: 'En camino a origen', 
+                        cadeteAsignado: sesion.nombre,
+                        ciCadete: sesion.ci
+                    });
+                }
+
+                window.dispatchEvent(new Event('storage'));
             }
 
-            localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
             reproducirAlertaVoz("Lo tengo");
             mostrarEnCursoCadete();
         };
@@ -904,7 +989,20 @@
             if (!sesion) return;
 
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
-            let enCurso = pedidosCadete.filter(p => String(p.ciCadete).trim() === String(sesion.ci).trim() && !String(p.estado || '').toLowerCase().includes('entregado'));
+            let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+
+            let todos = [...pedidosCadete, ...pedidosActivos];
+            baseEmpresas.forEach(e => { if (e.pedidos) todos.push(...e.pedidos); });
+
+            let enCurso = todos.filter(p => {
+                let esEsteCadete = String(p.ciCadete).trim() === String(sesion.ci).trim() || String(p.cadeteAsignado).trim() === String(sesion.nombre).trim();
+                let st = (p.estado || '').toLowerCase().trim();
+                let noEntregado = !st.includes('entregado') && !st.includes('cerrado') && !st.includes('cancelado');
+                return esEsteCadete && noEntregado;
+            });
+
+            enCurso = Array.from(new Map(enCurso.map(item => [String(item.id).trim(), item])).values());
             enCurso.sort((a, b) => b.id - a.id);
 
             const container = document.getElementById('main-content-cadete');
@@ -925,8 +1023,8 @@
                         <!-- FASE 1: EN CAMINO A ORIGEN -->
                         <div style="background:#fdf8f6; border:1.5px dashed var(--secondary); padding:12px; border-radius:10px; margin-top:10px;">
                             <p style="margin: 0 0 4px 0; font-size: 12px; font-weight:bold; color:var(--secondary);">📍 TRAMO 1: RETIRO EN ORIGEN</p>
-                            <p style="margin: 4px 0; font-size: 14px;">🏪 <b>Retirar en:</b> ${p.comercio || 'Origen'}</p>
-                            <p style="margin: 2px 0 10px 0; font-size: 13px; color:#555;">📍 <b>Dirección:</b> ${p.direccionComercio || 'Montevideo'}</p>
+                            <p style="margin: 4px 0; font-size: 14px;">🏪 <b>Retirar en:</b> ${p.comercio || p.empresaNombre || 'Origen'}</p>
+                            <p style="margin: 2px 0; font-size: 13px; color:#555;">📍 <b>Dirección:</b> ${p.direccionComercio || p.direccion || 'Montevideo'}</p>
 
                             <button type="button" onclick="avanzarAEnCaminoDestino('${p.id}')" style="background: var(--secondary);">📦 Ya retiré / Recibí el paquete</button>
                         </div>
@@ -935,7 +1033,7 @@
                         <div style="background:#f0fdf4; border:1.5px solid var(--success); padding:12px; border-radius:10px; margin-top:10px;">
                             <p style="margin: 0 0 4px 0; font-size: 12px; font-weight:bold; color:var(--success);">📍 TRAMO 2: ENTREGA A DESTINO</p>
                             <p style="margin: 4px 0; font-size: 13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || 'Sin tel'})</p>
-                            <p style="margin: 2px 0 10px 0; font-size: 13px;">📍 <b>Destino:</b> ${p.direccionCliente}</p>
+                            <p style="margin: 2px 0 10px 0; font-size: 13px;">📍 <b>Destino:</b> ${p.direccionCliente || p.direccion}</p>
 
                             <a href="https://wa.me/598${p.telefonoCliente || '99000000'}?text=${encodeURIComponent('Hola ' + p.cliente + ', soy tu cadete de Lo Tengo. Voy en camino con tu pedido.')}" target="_blank" class="btn-whatsapp" style="text-decoration:none; color:white; padding:8px 10px; border-radius:8px; font-size:12px; font-weight:bold; text-align:center; margin-bottom:10px;">
                                 💬 Abrir WhatsApp con el Cliente
@@ -991,12 +1089,37 @@
             `;
         }
 
-        window.avanzarAEnCaminoDestino = function(idPedido) {
+        window.avanzarAEnCaminoDestino = async function(idPedido) {
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+
             let p = pedidosCadete.find(x => String(x.id).trim() === String(idPedido).trim());
             if (p) {
                 p.estado = 'En camino a destino';
                 localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+
+                let act = pedidosActivos.find(x => String(x.id).trim() === String(idPedido).trim());
+                if (act) { act.estado = 'En camino a destino'; localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidosActivos)); }
+
+                if (baseEmpresas.length > 0 && baseEmpresas[0].pedidos) {
+                    let empP = baseEmpresas[0].pedidos.find(x => String(x.id).trim() === String(idPedido).trim());
+                    if (empP) { empP.estado = 'En camino a destino'; localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas)); }
+                }
+
+                try {
+                    await fetch(`${BACKEND_URL}/api/pedidos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(p)
+                    });
+                } catch(e) {}
+
+                if (socket && socket.connected) {
+                    socket.emit('cambiar_estado_pedido', { pedidoId: idPedido, estado: 'En camino a destino' });
+                }
+
+                window.dispatchEvent(new Event('storage'));
             }
             reproducirAlertaVoz("Paquete retirado. En camino a destino");
             mostrarEnCursoCadete();
@@ -1061,10 +1184,31 @@
 
         function procesarCierreLocal(idPedido) {
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
+            let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+
             let p = pedidosCadete.find(x => String(x.id).trim() === String(idPedido).trim());
             if (p) {
                 p.estado = 'Entregado y Cerrado';
                 localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
+
+                let act = pedidosActivos.find(x => String(x.id).trim() === String(idPedido).trim());
+                if (act) { act.estado = 'Entregado y Cerrado'; localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidosActivos)); }
+
+                if (baseEmpresas.length > 0 && baseEmpresas[0].pedidos) {
+                    let empP = baseEmpresas[0].pedidos.find(x => String(x.id).trim() === String(idPedido).trim());
+                    if (empP) { empP.estado = 'Entregado y Cerrado'; localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas)); }
+                }
+
+                try {
+                    fetch(`${BACKEND_URL}/api/pedidos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(p)
+                    }).catch(e => {});
+                } catch(e) {}
+
+                window.dispatchEvent(new Event('storage'));
             }
             reproducirAlertaVoz("Lo tengo");
             mostrarBurbujaEmergente("🎉 ¡Entrega Exitosa!", "El pedido fue cerrado correctamente.");
@@ -1088,10 +1232,10 @@
             let htmlHistorial = finalizados.map(e => `
                 <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:10px; font-size:13px;">
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <b>Pedido #${e.id.toString().slice(-4)} (${e.comercio || 'Express'})</b>
+                        <b>Pedido #${e.id.toString().slice(-4)} (${e.comercio || e.empresaNombre || 'Express'})</b>
                         <span style="color:var(--success); font-weight:bold;">Completado ✓</span>
                     </div>
-                    <p style="margin:2px 0; color:#555;">Cliente: ${e.cliente} - Destino: ${e.direccionCliente}</p>
+                    <p style="margin:2px 0; color:#555;">Cliente: ${e.cliente} - Destino: ${e.direccionCliente || e.direccion}</p>
                     <div style="display:flex; justify-content:space-between; border-top:1px dashed #eee; margin-top:6px; padding-top:6px;">
                         <span>Ganancia Neta Cadete:</span>
                         <b style="color:var(--primary);">+$${e.gananciaCadete || 140}</b>
