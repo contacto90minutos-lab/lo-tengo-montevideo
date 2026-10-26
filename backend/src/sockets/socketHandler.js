@@ -156,6 +156,16 @@ function configurarSockets(io) {
       io.emit('pedido_entregado_exito', pedidoEncontrado);
     });
 
+    // 🆕 NUEVO: Sincronización de cambio de estado de pedidos desde comercios
+    socket.on('cambiar_estado_pedido', (data) => {
+      io.emit('actualizacion_pedido', data);
+    });
+
+    // 🆕 NUEVO: Propagación masiva de campañas y descuentos de IA & Ads a clientes
+    socket.on('broadcast_campana_clientes', (campania) => {
+      io.emit('nueva_campana_push', campania);
+    });
+
     socket.on('disconnect', () => {
       delete cadetesConectados[socket.id];
     });

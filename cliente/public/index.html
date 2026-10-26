@@ -214,7 +214,10 @@
     <div id="app-container">
         <div class="header-app">
             <h1><div class="brand-badge">L+T</div><span style="color: var(--primary);">LO</span> TENGO</h1>
-            <span id="header-user-info" style="font-size: 12px; font-weight: 700; background: #F3F4F6; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--card-border);">📍 Montevideo</span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button type="button" onclick="compartirAppGeneral()" style="width:auto; padding:6px 12px; font-size:11px; background:#25D366; box-shadow:none; margin:0;" title="Compartir App">🔗 Compartir App</button>
+                <span id="header-user-info" style="font-size: 11px; font-weight: 700; background: #F3F4F6; padding: 6px 10px; border-radius: 20px; border: 1px solid var(--card-border);">📍 Montevideo</span>
+            </div>
         </div>
         
         <div class="content-body" id="main-content">
@@ -287,6 +290,7 @@
     <script>
         const BACKEND_URL = "https://lo-tengo-montevideo.onrender.com";
         let socket = null;
+        let carritoItems = {};
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toast-container');
@@ -322,9 +326,6 @@
             setInterval(() => {
                 sincronizarEmpresasDesdeServidor();
                 sincronizarPedidosDesdeServidor();
-                if (document.getElementById('contenedor-cards-pedidos')) {
-                    renderizarListaPedidos();
-                }
             }, 3000);
         });
 
@@ -337,9 +338,30 @@
             socket.on('actualizacion_pedido', (data) => {
                 sincronizarPedidosDesdeServidor();
                 if (document.getElementById('contenedor-cards-pedidos')) {
-                    renderizarListaPedidos();
+                    mostrarPedidosActivos();
                 }
             });
+        }
+
+        function compartirAppGeneral() {
+            let texto = "🚀 ¡Descargate LO TENGO, la app de entregas y cadetería instantánea en Montevideo! Pedí comida, súper o envíos express: " + window.location.origin;
+            if (navigator.share) {
+                navigator.share({ title: 'LO TENGO Montevideo', text: texto, url: window.location.origin }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(texto);
+                showToast("¡Link de la app copiado al portapapeles!");
+            }
+        }
+
+        function compartirRutaPedido(idPedido) {
+            let linkSeguimiento = `${window.location.origin}?seguimiento=${idPedido}`;
+            let texto = `📦 Seguimiento en vivo de tu envío LO TENGO (#${idPedido.toString().slice(-4)}). Mirá el avance en tiempo real: ${linkSeguimiento}`;
+            if (navigator.share) {
+                navigator.share({ title: 'Seguimiento LO TENGO', text: texto, url: linkSeguimiento }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(texto);
+                showToast("¡Enlace de seguimiento en vivo copiado!");
+            }
         }
 
         function procesarYComprimirFoto(event) {
@@ -376,7 +398,8 @@
                 if (response.ok) {
                     let empresasRemotas = await response.json();
                     if (empresasRemotas && Array.isArray(empresasRemotas)) {
-                        localStorage.setItem('lt_base_empresas', JSON.stringify(empresasRemotas));
+                        let empresasValidas = empresasRemotas.filter(e => e && e.nombre && e.rut);
+                        localStorage.setItem('lt_base_empresas', JSON.stringify(empresasValidas));
                     }
                 }
             } catch(e) {}
@@ -490,20 +513,19 @@
             localStorage.removeItem('lt_sesion_activa');
             location.reload();
         }
-
         function mostrarHome(filtroGiro = 'todos') {
             actualizarMenuActivo(0);
             const container = document.getElementById('main-content');
             let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let comerciosFiltrados = baseEmpresas.filter(emp => filtroGiro === 'todos' || emp.giro === filtroGiro);
+            let comerciosValidos = baseEmpresas.filter(emp => emp && emp.nombre && emp.rut && (filtroGiro === 'todos' || emp.giro === filtroGiro));
 
-            let htmlComercios = comerciosFiltrados.map(emp => `
+            let htmlComercios = comerciosValidos.map(emp => `
                 <div class="comercio-card" onclick="verCatalogoComercio('${emp.rut}')">
                     <img src="${emp.logo || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80'}" class="comercio-avatar">
                     <div style="flex:1;">
                         <h4 style="margin:0 0 4px 0; font-size:16px; font-weight:900;">${emp.nombre}</h4>
                         <p style="margin:0; font-size:12px; color:var(--text-muted);">📍 ${emp.direccion || 'Montevideo'} • ⭐ 4.9</p>
-                        <span style="font-size:10px; color:var(--primary); font-weight:800; background:rgba(255,87,34,0.1); padding:3px 8px; border-radius:6px; display:inline-block; margin-top:6px;">${emp.giro}</span>
+                        <span style="font-size:10px; color:var(--primary); font-weight:800; background:rgba(255,87,34,0.1); padding:3px 8px; border-radius:6px; display:inline-block; margin-top:6px;">${emp.giro || 'Gastronomía'}</span>
                     </div>
                     <span style="color:var(--text-muted); font-size:22px; font-weight:bold;">›</span>
                 </div>
@@ -541,9 +563,11 @@
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let prodsOutlet = [];
             base.forEach(emp => {
-                (emp.productos || []).forEach(p => {
-                    if (p.outlet) prodsOutlet.push({ ...p, empresaRut: emp.rut, empresaNombre: emp.nombre });
-                });
+                if (emp && emp.nombre && emp.rut) {
+                    (emp.productos || []).forEach(p => {
+                        if (p.outlet) prodsOutlet.push({ ...p, empresaRut: emp.rut, empresaNombre: emp.nombre });
+                    });
+                }
             });
 
             let html = prodsOutlet.map(p => `
@@ -554,7 +578,7 @@
                         <p style="margin:0; font-size:11px; color:var(--text-muted);">De: ${p.empresaNombre}</p>
                         <p style="margin:4px 0 0 0; font-size:15px; font-weight:900; color:var(--success);">$${p.precio}</p>
                     </div>
-                    <button type="button" onclick="iniciarSeleccionUbicacionPedido('${p.empresaRut}', ${p.id})" style="width:auto; padding:10px 14px; font-size:12px;">Pedir</button>
+                    <button type="button" onclick="agregarAlCarrito('${p.empresaRut}', ${p.id}, 1)" style="width:auto; padding:10px 14px; font-size:12px;">Agregar +</button>
                 </div>
             `).join('') || '<p style="text-align:center; color:var(--text-muted); padding:30px;">No hay productos en outlet.</p>';
 
@@ -570,25 +594,47 @@
                     <span style="font-size:28px;">⚡</span>
                 </div>
                 ${html}
+                <button type="button" onclick="verCheckoutCarrito()" style="background:var(--success); margin-top:20px;">🛒 Ver Carrito y Pagar</button>
             `;
         }
 
         function verCatalogoComercio(rut) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
+            let emp = base.find(e => e && String(e.rut).trim() === String(rut).trim());
             if (!emp) return;
 
             const container = document.getElementById('main-content');
-            let prods = (emp.productos || []).map(p => `
-                <div class="comercio-card">
-                    <img src="${p.imagen || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80'}" class="comercio-avatar">
-                    <div style="flex:1;">
-                        <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:900;">${p.nombre}</h4>
-                        <p style="margin:0; font-size:15px; font-weight:900; color:var(--success);">$${p.precio}</p>
+            let prods = (emp.productos || []).map(p => {
+                let cantEnCarrito = carritoItems[p.id] ? carritoItems[p.id].cantidad : 0;
+                return `
+                <div class="comercio-card" style="display:flex; flex-direction:column; align-items:flex-start;">
+                    <div style="display:flex; width:100%; gap:14px; align-items:center;">
+                        <img src="${p.imagen || 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80'}" class="comercio-avatar">
+                        <div style="flex:1;">
+                            <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:900;">${p.nombre}</h4>
+                            <p style="margin:0; font-size:15px; font-weight:900; color:var(--success);">$${p.precio}</p>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <button type="button" onclick="modificarCantidadItem('${emp.rut}', ${p.id}, -1)" style="width:32px; height:32px; padding:0; background:#E5E7EB; color:var(--text-main); font-weight:bold; border-radius:8px; box-shadow:none;">-</button>
+                            <span id="cant-prod-${p.id}" style="font-weight:900; font-size:15px; min-width:20px; text-align:center;">${cantEnCarrito}</span>
+                            <button type="button" onclick="modificarCantidadItem('${emp.rut}', ${p.id}, 1)" style="width:32px; height:32px; padding:0; background:var(--primary); color:#FFF; font-weight:bold; border-radius:8px; box-shadow:none;">+</button>
+                        </div>
                     </div>
-                    <button type="button" onclick="iniciarSeleccionUbicacionPedido('${emp.rut}', ${p.id})" style="width:auto; padding:10px 16px; font-size:13px;">Pedir</button>
+                    <div style="width:100%; margin-top:10px;">
+                        <input type="text" id="nota-prod-${p.id}" placeholder="Aclaraciones (Ej: Sin cebolla, sin sal...)" style="margin:0; font-size:12px; padding:8px;" value="${carritoItems[p.id] ? carritoItems[p.id].nota || '' : ''}" oninput="actualizarNotaItem(${p.id})">
+                    </div>
                 </div>
-            `).join('') || '<p style="text-align:center; color:var(--text-muted); padding:20px;">Sin productos.</p>';
+            `;
+            }).join('') || '<p style="text-align:center; color:var(--text-muted); padding:20px;">Sin productos.</p>';
+
+            let upsellingHtml = `
+                <div style="background:#FEF3C7; border:1.5px solid #F59E0B; border-radius:var(--radius-md); padding:14px; margin-top:20px;">
+                    <h4 style="margin:0 0 8px 0; font-size:14px; font-weight:900; color:#B45309;">🥤 Sugerencias / Upselling</h4>
+                    <p style="margin:0 0 10px 0; font-size:12px; color:#B45309;">¿Le sumamos una Coca-Cola bien fría o un postre a tu pedido?</p>
+                    <button type="button" onclick="agregarUpselling('${emp.rut}', 'Coca-Cola 1.5L', 95)" style="background:#D97706; padding:8px 12px; font-size:12px; width:auto; display:inline-block; margin-right:6px;">+ Coca-Cola 1.5L ($95)</button>
+                    <button type="button" onclick="agregarUpselling('${emp.rut}', 'Postre Chajá', 120)" style="background:#D97706; padding:8px 12px; font-size:12px; width:auto; display:inline-block;">+ Postre Chajá ($120)</button>
+                </div>
+            `;
 
             container.innerHTML = `
                 <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
@@ -602,41 +648,101 @@
                 </div>
                 <h4 style="margin-bottom:12px; font-size:16px; font-weight:900;">Catálogo Disponible (Costo de envío: $90)</h4>
                 ${prods}
+                ${upsellingHtml}
+                <button type="button" onclick="verCheckoutCarrito('${emp.rut}')" style="background:var(--success); margin-top:20px; font-weight:900;">🛒 Continuar al Carrito y Pago</button>
             `;
         }
 
-        // CHECKOUT FLEXIBLE CON RECARGO MERCADO PAGO 7%
-        function iniciarSeleccionUbicacionPedido(rut, productoId) {
-            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
+        function modificarCantidadItem(rut, productoId, delta) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
+            let emp = base.find(e => e && String(e.rut).trim() === String(rut).trim());
+            if (!emp) return;
             let p = emp.productos.find(prod => Number(prod.id) === Number(productoId));
-            
-            let subtotalBase = p.precio + 90 + 35; // Prod + Envío $90 + Propina default $35
-            let recargoMP = subtotalBase * 0.07;
-            let totalFinal = Math.round((subtotalBase + recargoMP) * 100) / 100;
+            if (!p) return;
+
+            if (!carritoItems[productoId]) {
+                carritoItems[productoId] = { ...p, cantidad: 0, empresaRut: rut, empresaNombre: emp.nombre, nota: '' };
+            }
+            carritoItems[productoId].cantidad += delta;
+            if (carritoItems[productoId].cantidad <= 0) {
+                delete carritoItems[productoId];
+            }
+
+            let span = document.getElementById(`cant-prod-${productoId}`);
+            if (span) span.innerText = carritoItems[productoId] ? carritoItems[productoId].cantidad : 0;
+        }
+
+        function actualizarNotaItem(productoId) {
+            let input = document.getElementById(`nota-prod-${productoId}`);
+            if (input && carritoItems[productoId]) {
+                carritoItems[productoId].nota = input.value;
+            }
+        }
+
+        function agregarUpselling(rut, nombre, precio) {
+            let idU = 'up-' + Date.now();
+            carritoItems[idU] = { id: idU, nombre, precio, cantidad: 1, empresaRut: rut, empresaNombre: 'Upselling', nota: '' };
+            showToast(`¡${nombre} agregado al carrito!`);
+        }
+
+        function verCheckoutCarrito(rutComercioDefault = '') {
+            let itemsArray = Object.values(carritoItems);
+            if (itemsArray.length === 0) {
+                showToast("Tu carrito está vacío", "error");
+                return;
+            }
+
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
+            let subtotalProd = itemsArray.reduce((acc, curr) => acc + (curr.precio * curr.cantidad), 0);
+            let costoEnvio = 90;
+            let propinaDefault = 35;
+            let subtotalGeneral = subtotalProd + costoEnvio + propinaDefault;
+            let recargoMP = subtotalGeneral * 0.07;
+            let totalFinal = Math.round((subtotalGeneral + recargoMP) * 100) / 100;
+            let rutAsociado = rutComercioDefault || itemsArray[0].empresaRut || '';
+
+            let listadoHtml = itemsArray.map(i => `
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px; font-size:13px;">
+                    <span><b>${i.cantidad}x</b> ${i.nombre} ${i.nota ? '<br><small style="color:var(--text-muted);">Nota: ' + i.nota + '</small>' : ''}</span>
+                    <b>$${i.precio * i.cantidad}</b>
+                </div>
+            `).join('');
 
             const container = document.getElementById('main-content');
             container.innerHTML = `
-                <button type="button" class="btn-volver-atras" onclick="verCatalogoComercio('${rut}')">
+                <button type="button" class="btn-volver-atras" onclick="mostrarHome()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Catálogo
                 </button>
-                <h3 style="margin-top:0; font-size:20px; font-weight:900;">💳 Resumen y Pago</h3>
+                <h3 style="margin-top:0; font-size:20px; font-weight:900;">🛒 Carrito y Pago</h3>
 
-                <label>Dirección de Entrega (Flexible):</label>
-                <input type="text" id="dirEntregaFinal" value="${sesion.direccion || ''}" placeholder="Ej: Calle, número o casa de un familiar en Montevideo">
+                <label>Dirección de Entrega:</label>
+                <input type="text" id="dirEntregaFinal" value="${sesion.direccion || ''}" placeholder="Calle, número y barrio">
 
-                <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border); font-size:13px;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>${p.nombre}:</span> <b>$${p.precio}</b></div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:12px;"><span>Costo de envío:</span> <b>$90</b></div>
+                <div style="background:#FEF3C7; border:1.5px solid #F59E0B; border-radius:var(--radius-md); padding:14px; margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <input type="checkbox" id="checkProgramado" onchange="toggleProgramado()" style="width:auto; margin:0;">
+                        <label for="checkProgramado" style="margin:0; font-size:13px; color:#B45309; font-weight:800; cursor:pointer;">🕒 Programar pedido para más tarde</label>
+                    </div>
+                    <div id="contenedor-hora-programada" style="display:none; margin-top:8px;">
+                        <label style="font-size:12px; color:#B45309;">Seleccionar Hora de Entrega:</label>
+                        <input type="time" id="inputHoraProgramada" style="margin:0; background:#FFF; border-color:#F59E0B;">
+                        <small style="display:block; margin-top:4px; font-size:11px; color:#B45309;">El sistema activará el despacho automático 20 minutos antes.</small>
+                    </div>
+                </div>
+
+                <div style="background:#F9FAFB; padding:14px; border-radius:var(--radius-md); margin-bottom:16px; border:1.5px solid var(--card-border);">
+                    <h4 style="margin:0 0 10px 0; font-size:14px; font-weight:900;">Detalle de Compra:</h4>
+                    ${listadoHtml}
+                    <hr style="border:0; border-top:1px dashed var(--card-border); margin:10px 0;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;"><span>Costo de envío:</span> <b>$90</b></div>
                     
                     <label style="font-size:12px; margin-bottom:6px; color:var(--primary);">🪙 Propina 100% para el cadete:</label>
                     <div style="display:flex; gap:6px; margin-bottom:10px;">
-                        <button type="button" id="btn-prop-0" class="btn-propina-opcion" onclick="setPropina(0, ${p.precio})">$0</button>
-                        <button type="button" id="btn-prop-35" class="btn-propina-opcion activo" onclick="setPropina(35, ${p.precio})">$35</button>
-                        <button type="button" id="btn-prop-55" class="btn-propina-opcion" onclick="setPropina(55, ${p.precio})">$55</button>
+                        <button type="button" id="btn-prop-0" class="btn-propina-opcion" onclick="setPropinaCarrito(0)">$0</button>
+                        <button type="button" id="btn-prop-35" class="btn-propina-opcion activo" onclick="setPropinaCarrito(35)">$35</button>
+                        <button type="button" id="btn-prop-55" class="btn-propina-opcion" onclick="setPropinaCarrito(55)">$55</button>
                     </div>
-                    <input type="number" id="inputPropina" value="35" min="0" step="5" oninput="actualizarTotal(${p.precio})" style="margin:0; padding:8px;">
+                    <input type="number" id="inputPropinaCarrito" value="35" min="0" step="5" oninput="actualizarTotalCarrito()" style="margin:0; padding:8px;">
 
                     <div style="display:flex; justify-content:space-between; margin-top:10px; color:var(--text-muted); font-size:12px;">
                         <span>Recargo Pasarela MP (7%):</span>
@@ -649,21 +755,28 @@
                     </div>
                 </div>
 
-                <button type="button" onclick="confirmarPedidoCompra('${rut}', ${productoId})" style="background:#0284C7; font-weight:800;">💙 Confirmar y Pagar</button>
+                <button type="button" onclick="confirmarPedidoCarrito('${rutAsociado}')" style="background:#0284C7; font-weight:800;">💙 Confirmar y Pagar Pedido</button>
             `;
         }
 
-        function setPropina(m, precioProd) {
-            document.getElementById('inputPropina').value = m;
-            document.querySelectorAll('.btn-propina-opcion').forEach(btn => btn.classList.remove('activo'));
-            let btnActivo = document.getElementById(`btn-prop-${m}`);
-            if (btnActivo) btnActivo.classList.add('activo');
-            actualizarTotal(precioProd);
+        function toggleProgramado() {
+            let activo = document.getElementById('checkProgramado').checked;
+            document.getElementById('contenedor-hora-programada').style.display = activo ? 'block' : 'none';
         }
 
-        function actualizarTotal(precioProd) {
-            let propina = Number(document.getElementById('inputPropina').value) || 0;
-            let subtotal = precioProd + 90 + propina;
+        function setPropinaCarrito(m) {
+            document.getElementById('inputPropinaCarrito').value = m;
+            document.querySelectorAll('[id^="btn-prop-"]').forEach(btn => btn.classList.remove('activo'));
+            let btnActivo = document.getElementById(`btn-prop-${m}`);
+            if (btnActivo) btnActivo.classList.add('activo');
+            actualizarTotalCarrito();
+        }
+
+        function actualizarTotalCarrito() {
+            let itemsArray = Object.values(carritoItems);
+            let subtotalProd = itemsArray.reduce((acc, curr) => acc + (curr.precio * curr.cantidad), 0);
+            let propina = Number(document.getElementById('inputPropinaCarrito').value) || 0;
+            let subtotal = subtotalProd + 90 + propina;
             let recargoMP = subtotal * 0.07;
             let totalFinal = subtotal + recargoMP;
 
@@ -671,38 +784,52 @@
             document.getElementById('lblTotal').innerText = `$${totalFinal.toFixed(2)}`;
         }
 
-        async function confirmarPedidoCompra(rut, productoId) {
-            let dir = document.getElementById('dirEntregaFinal').value;
-            let propina = Number(document.getElementById('inputPropina').value) || 0;
+        async function confirmarPedidoCarrito(rut) {
+            let itemsArray = Object.values(carritoItems);
+            let dir = document.getElementById('dirEntregaFinal').value.trim();
+            let propina = Number(document.getElementById('inputPropinaCarrito').value) || 0;
+            let esProgramado = document.getElementById('checkProgramado').checked;
+            let horaProgramada = esProgramado ? document.getElementById('inputHoraProgramada').value : null;
+
+            if (!dir) { showToast("Ingresá la dirección de entrega", "error"); return; }
+            if (esProgramado && !horaProgramada) { showToast("Seleccioná la hora programada", "error"); return; }
+
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
-            let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
-            let p = emp.productos.find(prod => Number(prod.id) === Number(productoId));
+            let emp = base.find(e => e && String(e.rut).trim() === String(rut).trim()) || base[0];
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
             
-            let subtotal = p.precio + 90 + propina;
+            let subtotalProd = itemsArray.reduce((acc, curr) => acc + (curr.precio * curr.cantidad), 0);
+            let subtotal = subtotalProd + 90 + propina;
             let recargoMP = subtotal * 0.07;
             let totalFinal = Math.round((subtotal + recargoMP) * 100) / 100;
             let pinGenerado = Math.floor(1000 + Math.random() * 9000).toString();
 
+            let itemsPedidoDetalle = itemsArray.map(i => ({
+                nombre: i.nombre + (i.nota ? ` (Nota: ${i.nota})` : ''),
+                precio: i.precio,
+                cantidad: i.cantidad
+            }));
+            itemsPedidoDetalle.push({ nombre: 'Costo de Envío', precio: 90, cantidad: 1 });
+            if (propina > 0) itemsPedidoDetalle.push({ nombre: 'Propina Cadete', precio: propina, cantidad: 1 });
+            itemsPedidoDetalle.push({ nombre: 'Recargo Pasarela MP (7%)', precio: Math.round(recargoMP * 100) / 100, cantidad: 1 });
+
             let nuevoPedido = {
                 id: Date.now(),
-                rutComercio: rut,
+                tipoServicio: 'comercio',
+                rutComercio: emp.rut,
+                empresaNombre: emp.nombre,
                 cliente: sesion.nombre || 'Cliente Montevideo',
                 telefonoCliente: sesion.telefono || '099000000',
                 direccion: dir,
-                valorProducto: p.precio,
+                valorProducto: subtotalProd,
                 valorEnvio: 90,
                 propina: propina,
                 total: totalFinal,
-                estado: emp.giro === 'Gastronomía' ? 'Recibido' : 'Recibido - Preparación',
-                items: [
-                    { nombre: p.nombre, precio: p.precio, cantidad: 1 },
-                    { nombre: 'Costo de Envío', precio: 90, cantidad: 1 },
-                    ...(propina > 0 ? [{ nombre: 'Propina Cadete', precio: propina, cantidad: 1 }] : []),
-                    { nombre: 'Recargo Pasarela MP (7%)', precio: Math.round(recargoMP * 100) / 100, cantidad: 1 }
-                ],
-                pinSeguridad: pinGenerado,
-                codigoVerificacion: pinGenerado
+                estado: esProgramado ? 'programado' : 'pago_confirmado',
+                esProgramado: esProgramado,
+                horaProgramada: horaProgramada,
+                items: itemsPedidoDetalle,
+                pinSeguridad: pinGenerado
             };
 
             let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
@@ -712,6 +839,7 @@
             if (!emp.pedidos) emp.pedidos = [];
             emp.pedidos.push(nuevoPedido);
             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+            carritoItems = {};
             window.dispatchEvent(new Event('storage'));
 
             try {
@@ -722,11 +850,10 @@
                 });
             } catch (e) {}
 
-            showToast(`¡Pedido creado con éxito! PIN: ${pinGenerado}`);
+            showToast(esProgramado ? `¡Pedido programado para las ${horaProgramada}! PIN: ${pinGenerado}` : `¡Pedido creado con éxito! PIN: ${pinGenerado}`);
             mostrarPedidosActivos();
         }
 
-        // MÓDULO DE CADETERÍA EXPRESS (CON MAPA Y CÁLCULO DE DISTANCIA)
         let tipoVehiculoCadete = 'moto';
         let mapaExpress = null;
         let markerOrigen = null;
@@ -743,7 +870,6 @@
                 <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">🛵 Cadetería Express (A ➔ B)</h3>
                 <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">Trazabilidad en tiempo real y cálculo de distancia automático.</p>
 
-                <!-- CONTENEDOR VISUAL DEL MAPA -->
                 <div id="mapa-express" style="height: 220px; border-radius: var(--radius-md); margin-bottom: 16px; border: 1.5px solid var(--card-border); z-index: 1;"></div>
 
                 <label>Seleccionar Vehículo:</label>
@@ -772,6 +898,16 @@
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:14px; background:#FEF3C7; padding:10px 14px; border-radius:var(--radius-md); border:1.5px solid #F59E0B;">
                     <input type="checkbox" id="checkTresCruces" onchange="toggleTresCruces()" style="width:auto; margin:0;">
                     <label for="checkTresCruces" style="margin:0; font-size:13px; color:#B45309; font-weight:800; cursor:pointer;">🏢 Despacho en Terminal Tres Cruces (Foto de remito obligatoria)</label>
+                </div>
+
+                <div style="background:#F0FDF4; border:1.5px solid #10B981; border-radius:var(--radius-md); padding:12px; margin-bottom:14px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="checkbox" id="checkExpressProgramado" onchange="toggleExpressProgramado()" style="width:auto; margin:0;">
+                        <label for="checkExpressProgramado" style="margin:0; font-size:13px; color:#047857; font-weight:800; cursor:pointer;">🕒 Programar horario de recogida/entrega</label>
+                    </div>
+                    <div id="contenedor-express-prog" style="display:none; margin-top:8px;">
+                        <input type="time" id="inputExpressHora" style="margin:0; background:#FFF; border-color:#10B981;">
+                    </div>
                 </div>
 
                 <div id="contenedor-destinos-cadete">
@@ -859,6 +995,11 @@
             actualizarCalculoConMapa();
         }
 
+        function toggleExpressProgramado() {
+            let activo = document.getElementById('checkExpressProgramado').checked;
+            document.getElementById('contenedor-express-prog').style.display = activo ? 'block' : 'none';
+        }
+
         function obtenerUbicacionGPSOrigen() {
             if (navigator.geolocation) {
                 showToast("Obteniendo GPS...");
@@ -894,7 +1035,6 @@
             else if (origen.toLowerCase().includes('centro') && destino.toLowerCase().includes('tres cruces')) distanciaKm = 3;
             else if (origen.length > 15 && destino.length > 15) distanciaKm = 6;
 
-            // Tarifas oficiales correctas LO TENGO
             let tarifaBase = tipoVehiculoCadete === 'moto' ? 230 : 390;
             let kmIncluidos = tipoVehiculoCadete === 'moto' ? 8 : 10;
             let costoAdicionalKm = 0;
@@ -943,6 +1083,9 @@
             let telRecibe = document.getElementById('destinatarioTelefono').value.trim();
             let desc = document.getElementById('cadDescripcion').value.trim();
             let propina = Number(document.getElementById('inputPropinaCadete').value) || 0;
+            let esProg = document.getElementById('checkExpressProgramado').checked;
+            let horaProg = esProg ? document.getElementById('inputExpressHora').value : null;
+            let esTresCruces = document.getElementById('checkTresCruces').checked;
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_activa')) || {};
 
             if (!origen || !destino || !nomRecibe || !telRecibe) {
@@ -962,7 +1105,7 @@
 
             let nuevoPedido = {
                 id: Date.now(),
-                tipoPedido: 'express',
+                tipoServicio: esTresCruces ? 'tres_cruces' : 'express_ab',
                 empresaNombre: `Cadeteria Express (${tipoVehiculoCadete.toUpperCase()})`,
                 cliente: sesion.nombre || 'Cliente Montevideo',
                 telefonoCliente: sesion.telefono || '099000000',
@@ -971,7 +1114,9 @@
                 destinatario: nomRecibe,
                 telefonoDestinatario: telRecibe,
                 total: totalFinal,
-                estado: 'Recibido - En espera de cadete',
+                estado: esProg ? 'programado' : 'pago_confirmado',
+                esProgramado: esProg,
+                horaProgramada: horaProg,
                 pinSeguridad: pinGenerado
             };
 
@@ -988,15 +1133,38 @@
                 });
             } catch (e) {}
 
-            showToast(`¡Envío Express solicitado! PIN: ${pinGenerado}`);
+            showToast(esProg ? `¡Envío Express programado para las ${horaProg}!` : `¡Envío Express solicitado! PIN: ${pinGenerado}`);
             mostrarPedidosActivos();
         }
 
+        let pestanaPedidoActual = 'activos';
+
         function mostrarPedidosActivos() {
             actualizarMenuActivo(3);
+            renderizarListaPedidos();
+        }
+
+        function cambiarPestanaPedidos(pestana) {
+            pestanaPedidoActual = pestana;
+            renderizarListaPedidos();
+        }
+
+        function renderizarListaPedidos() {
             let pedidos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
 
-            let contenidoHTML = pedidos.map(p => {
+            let activos = pedidos.filter(p => {
+                let st = (p.estado || '').toLowerCase();
+                return !st.includes('entregado') && !st.includes('cerrado') && !st.includes('cancelado');
+            });
+
+            let finalizados = pedidos.filter(p => {
+                let st = (p.estado || '').toLowerCase();
+                return st.includes('entregado') || st.includes('cerrado') || st.includes('cancelado');
+            });
+
+            let listaAMostrar = pestanaPedidoActual === 'activos' ? activos : finalizados;
+
+            let contenidoHTML = listaAMostrar.map(p => {
                 let st = p.estado || '';
                 let claseBadge = 'estado-recibido';
                 if (st.includes('Preparación')) claseBadge = 'estado-preparacion';
@@ -1006,18 +1174,35 @@
 
                 let itemsTexto = p.items ? p.items.map(i => i.nombre).join(', ') : (p.descripcion || 'Encomienda Express');
                 let esFinalizado = st.toLowerCase().includes('entregado') || st.toLowerCase().includes('cerrado') || st.toLowerCase().includes('cancelado');
-                let puedeCancelar = !esFinalizado && (st.toLowerCase().includes('recibido') || st.toLowerCase().includes('pendiente'));
+                let puedeCancelar = !esFinalizado && (st.toLowerCase().includes('recibido') || st.toLowerCase().includes('pendiente') || st.toLowerCase().includes('programado'));
 
-                // GARANTÍA DE RECEPCIÓN: Muestra quién recibió cuando el cadete cierra el envío
-                let infoReceptorHtml = '';
-                if (esFinalizado && (p.receptorInfo || p.estadoReceptor || p.fotoComprobante)) {
-                    let info = p.receptorInfo || {};
-                    infoReceptorHtml = `
+                let comprobanteHtml = '';
+                if (esFinalizado) {
+                    comprobanteHtml = `
                         <div style="background:#F0FDF4; border:1px solid #10B981; padding:10px; border-radius:8px; margin-top:10px; font-size:12px; color:#047857;">
-                            <b>✅ Garantía de Entrega Exitosa:</b><br>
-                            ${info.nombre ? `Recibió: <b>${info.nombre}</b> (CI: ${info.ci} - Rol: ${info.rol})` : 'Entregado y verificado correctamente.'}
+                            <b>✅ Comprobante / Garantía de Entrega:</b><br>
+                            ${p.fotoRemito ? `<img src="${p.fotoRemito}" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-top:6px;">` : 'Servicio finalizado y validado con éxito.'}
                         </div>
                     `;
+                }
+
+                let calificacionHtml = '';
+                if (esFinalizado && !p.calificacionEnviada) {
+                    calificacionHtml = `
+                        <div style="background:#FEF3C7; border:1.5px solid #F59E0B; padding:12px; border-radius:8px; margin-top:12px; text-align:center;">
+                            <b style="font-size:13px; color:#B45309;">⭐ ¿Qué te pareció la experiencia?</b>
+                            <div style="display:flex; justify-content:center; gap:6px; margin:8px 0;" id="estrellas-${p.id}">
+                                <span onclick="enviarCalificacionPedido('${p.id}', 1)" style="font-size:22px; cursor:pointer;">⭐</span>
+                                <span onclick="enviarCalificacionPedido('${p.id}', 2)" style="font-size:22px; cursor:pointer;">⭐⭐</span>
+                                <span onclick="enviarCalificacionPedido('${p.id}', 3)" style="font-size:22px; cursor:pointer;">⭐⭐⭐</span>
+                                <span onclick="enviarCalificacionPedido('${p.id}', 4)" style="font-size:22px; cursor:pointer;">⭐⭐⭐⭐</span>
+                                <span onclick="enviarCalificacionPedido('${p.id}', 5)" style="font-size:22px; cursor:pointer;">⭐⭐⭐⭐⭐</span>
+                            </div>
+                            <input type="text" id="comentario-${p.id}" placeholder="Comentario opcional..." style="font-size:12px; margin:0; padding:6px;">
+                        </div>
+                    `;
+                } else if (p.calificacionEnviada) {
+                    calificacionHtml = `<div style="margin-top:8px; font-size:12px; color:var(--success); font-weight:bold;">⭐ Calificación enviada (${p.calificacion} / 5)</div>`;
                 }
 
                 return `
@@ -1031,7 +1216,14 @@
                     <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">📦 ${itemsTexto}</p>
                     <p style="margin:4px 0; font-size:13px; color:var(--text-muted);">💳 Total: <b>$${p.total || 0}</b></p>
 
-                    ${infoReceptorHtml}
+                    ${!esFinalizado ? `
+                        <div style="margin-top:10px;">
+                            <button type="button" onclick="compartirRutaPedido('${p.id}')" style="background:#25D366; font-size:12px; padding:8px; box-shadow:none;">💬 Compartir Ruta / Seguimiento en Vivo</button>
+                        </div>
+                    ` : ''}
+
+                    ${comprobanteHtml}
+                    ${calificacionHtml}
 
                     ${!esFinalizado && p.pinSeguridad ? `
                         <div style="background:#FFF7ED; padding:12px; border-radius:var(--radius-md); text-align:center; margin-top:12px; border: 1.5px solid #FDBA74;">
@@ -1047,7 +1239,7 @@
                     ` : ''}
                 </div>
                 `;
-            }).join('') || '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">No hay pedidos activos.</p>';
+            }).join('') || `<p style="text-align:center; color:var(--text-muted); margin-top:30px;">No hay pedidos ${pestanaPedidoActual}.</p>`;
 
             const container = document.getElementById('main-content');
             if (container) {
@@ -1056,10 +1248,31 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Inicio
                     </button>
                     <h3 style="color:var(--text-main); margin-top:0; font-size:20px; font-weight:900;">📦 Mis Pedidos y Seguimiento</h3>
+                    
+                    <div style="display:flex; gap:6px; margin-bottom:16px;">
+                        <button type="button" onclick="cambiarPestanaPedidos('activos')" style="flex:1; padding:10px; font-size:12px; background:${pestanaPedidoActual === 'activos' ? 'var(--primary)' : '#E5E7EB'}; color:${pestanaPedidoActual === 'activos' ? '#FFF' : 'var(--text-main)'}; box-shadow:none;">📦 Activos (${activos.length})</button>
+                        <button type="button" onclick="cambiarPestanaPedidos('finalizados')" style="flex:1; padding:10px; font-size:12px; background:${pestanaPedidoActual === 'finalizados' ? 'var(--primary)' : '#E5E7EB'}; color:${pestanaPedidoActual === 'finalizados' ? '#FFF' : 'var(--text-main)'}; box-shadow:none;">✅ Historial (${finalizados.length})</button>
+                    </div>
+
                     <div id="contenedor-cards-pedidos">${contenidoHTML}</div>
                 `;
             }
         }
+
+        window.enviarCalificacionPedido = function(idPedido, estrellas) {
+            let comentario = document.getElementById(`comentario-${idPedido}`).value.trim();
+            let pedidos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
+            pedidos.forEach(p => {
+                if (String(p.id).trim() === String(idPedido).trim()) {
+                    p.calificacionEnviada = true;
+                    p.calificacion = estrellas;
+                    p.comentarioCalificacion = comentario;
+                }
+            });
+            localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidos));
+            showToast("¡Gracias por calificar tu experiencia!");
+            renderizarListaPedidos();
+        };
 
         window.mostrarModalCancelarPedido = function(idPedido) {
             let razones = [

@@ -12,15 +12,25 @@ function calcularDistanciaKm(lat1, lon1, lat2, lon2) {
   return R * c; 
 }
 
-function calcularCostoEnvio(tipoVehiculo, distanciaKm, retornoOrigen = false) {
+/**
+ * Calcula el costo de envío según vehículo y categoría de servicio.
+ * @param {string} tipoVehiculo - 'moto' o 'camioneta'
+ * @param {number} distanciaKm - Distancia total (o sumatoria de tramos en multi-puntos)
+ * @param {string} categoriaServicio - 'gastronomia', 'supermercado', 'farmacia', 'estandar'
+ * @param {boolean} retornoOrigen - Si requiere viaje de ida y vuelta
+ */
+function calcularCostoEnvio(tipoVehiculo, distanciaKm, categoriaServicio = 'gastronomia', retornoOrigen = false) {
   let distNum = parseFloat(distanciaKm) || 0;
   let distanciaEfectiva = retornoOrigen ? distNum * 2 : distNum;
   let costoEnvio = 0;
 
   if (tipoVehiculo === 'moto') {
     const baseKm = 5;
-    const precioBase = 90; // Tarifa base corregida a $90 UYU
+    // Gastronomía, Supermercados y Farmacias (hasta 15kg) -> Base $90. Otros -> Base $190.
+    const esLivianoAsistido = ['gastronomia', 'supermercado', 'farmacia', 'liviano'].includes(categoriaServicio.toLowerCase());
+    let precioBase = esLivianoAsistido ? 90 : 190;
     const costoKmExtra = 10;
+
     if (distanciaEfectiva <= baseKm) {
       costoEnvio = precioBase;
     } else {
@@ -31,6 +41,7 @@ function calcularCostoEnvio(tipoVehiculo, distanciaKm, retornoOrigen = false) {
     const baseKm = 8;
     const precioBase = 390;
     const costoKmExtra = 20;
+
     if (distanciaEfectiva <= baseKm) {
       costoEnvio = precioBase;
     } else {

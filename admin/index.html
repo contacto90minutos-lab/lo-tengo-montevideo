@@ -214,7 +214,7 @@
             <button class="nav-item" onclick="mostrarListaCadetesAdmin()">Cadetes</button>
             <button class="nav-item" onclick="mostrarListaClientesAdmin()">Clientes</button>
             <button class="nav-item" onclick="mostrarCampañasIAAdmin()">IA & Ads</button>
-            <button class="nav-item" onclick="mostrarLiquidacionEmpresas()">Comisiones</button>
+            <button class="nav-item" onclick="mostrarLiquidacionGeneral()">Finanzas</button>
             <button class="nav-item" onclick="cerrarSesionAdmin()">Salir</button>
         </div>
     </div>
@@ -431,7 +431,7 @@
         }
 
         // ==========================================
-        // GESTIÓN DE EMPRESAS
+        // GESTIÓN DE EMPRESAS Y PLANILLA DETALLADA
         // ==========================================
         function mostrarListaEmpresasAdmin() {
             actualizarMenuActivoAdmin(2);
@@ -442,7 +442,7 @@
                 let totalProd = emp.productos ? emp.productos.length : 0;
                 let destacadoActivo = emp.suscripcionDestacadosActiva || false;
                 return `
-                    <div class="card-metric" style="border-left: 5px solid ${destacadoActivo ? '#7C3AED' : 'var(--accent)'};">
+                    <div class="card-metric" style="border-left: 5px solid ${destacadoActivo ? '#7C3AED' : 'var(--accent)'}; cursor:pointer;" onclick="verDetallePlanillaEmpresa('${emp.rut}')">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--primary);">${emp.nombre}</h4>
                             <span style="font-size:10px; background:${destacadoActivo ? '#FAF5FF' : '#EFF6FF'}; color:${destacadoActivo ? '#7C3AED' : 'var(--accent)'}; padding:2px 6px; border-radius:4px; font-weight:700;">${destacadoActivo ? '⭐ Destacados Active' : (emp.giro || 'Comercio')}</span>
@@ -450,7 +450,7 @@
                         <p style="margin:4px 0 2px 0; font-size:12px; color:var(--text-muted);"><b>RUT:</b> ${emp.rut} | <b>Tel:</b> ${emp.telefono || 'Sin tel'}</p>
                         <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📍 ${emp.direccion || 'Montevideo'}</p>
                         
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; border-top:1px solid var(--border); pt-top:6px; font-size:11px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; border-top:1px solid var(--border); pt-top:6px; font-size:11px;" onclick="event.stopPropagation()">
                             <span>📦 Prod: ${totalProd}</span>
                             <button type="button" onclick="toggleSuscripcionDestacados('${emp.rut}')" style="width:auto; padding:5px 10px; font-size:10px; background:${destacadoActivo ? '#DC2626' : '#7C3AED'};">
                                 ${destacadoActivo ? 'Quitar Destacados' : 'Activar Destacados ($500)'}
@@ -469,6 +469,57 @@
             `;
         }
 
+        window.verDetallePlanillaEmpresa = function(rut) {
+            let datos = obtenerDatosGlobalesSistema();
+            let emp = datos.baseEmpresas.find(e => String(e.rut).trim() === String(rut).trim());
+            if (!emp) return;
+
+            const container = document.getElementById('main-content-admin');
+            let pedidosEmpresa = emp.pedidos || [];
+            let totalVentas = pedidosEmpresa.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
+            let comisionLO = totalVentas * 0.10;
+            let netoComercio = totalVentas - comisionLO;
+
+            container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarListaEmpresasAdmin()">← Volver a Comercios</button>
+                <div class="section-header"><span>Planilla Detallada: ${emp.nombre}</span></div>
+                
+                <div class="card-metric">
+                    <p class="metric-title">Información de Contacto y Fiscal</p>
+                    <p style="margin:2px 0; font-size:13px;"><b>RUT:</b> ${emp.rut}</p>
+                    <p style="margin:2px 0; font-size:13px;"><b>Teléfono:</b> ${emp.telefono || 'No especificado'}</p>
+                    <p style="margin:2px 0; font-size:13px;"><b>Dirección:</b> ${emp.direccion || 'Montevideo'}</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--success);"><b>Ventas Brutas:</b> $${totalVentas.toFixed(2)}</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--danger);"><b>Comisión LO TENGO (10%):</b> -$${comisionLO.toFixed(2)}</p>
+                    <p style="margin:2px 0; font-size:14px; font-weight:800; color:var(--accent);"><b>Neto a Liquidar:</b> $${netoComercio.toFixed(2)}</p>
+                </div>
+
+                <div class="section-header"><span>Historial de Pedidos (${pedidosEmpresa.length})</span></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Estado</th>
+                                <th style="text-align:right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pedidosEmpresa.map(p => `
+                                <tr>
+                                    <td>#${p.id ? p.id.toString().slice(-4) : '0000'}</td>
+                                    <td>${p.cliente || 'Cliente'}</td>
+                                    <td>${p.estado || 'Activo'}</td>
+                                    <td style="text-align:right; font-weight:700;">$${p.total || 0}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="4" style="text-align:center;">Sin pedidos registrados.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        };
+
         window.toggleSuscripcionDestacados = function(rut) {
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
@@ -482,17 +533,17 @@
         };
 
         // ==========================================
-        // GESTIÓN DE CADETES (HABILITAR / DESHABILITAR)
+        // GESTIÓN DE CADETES Y PLANILLA FINANCIERA
         // ==========================================
         function mostrarListaCadetesAdmin() {
             actualizarMenuActivoAdmin(3);
             let datos = obtenerDatosGlobalesSistema();
             const container = document.getElementById('main-content-admin');
 
-            let htmlCadetes = datos.cadetes.map((c, index) => {
-                let activo = c.activo !== false; // Por defecto activo
+            let htmlCadetes = datos.cadetes.map((c) => {
+                let activo = c.activo !== false;
                 return `
-                    <div class="card-metric" style="border-left: 5px solid ${activo ? 'var(--success)' : 'var(--danger)'};">
+                    <div class="card-metric" style="border-left: 5px solid ${activo ? 'var(--success)' : 'var(--danger)'}; cursor:pointer;" onclick="verDetallePlanillaCadete('${c.ci || c.nombre}')">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <h4 style="margin:0; font-size:15px; font-weight:800; color:var(--primary);">${c.nombre}</h4>
                             <span style="font-size:10px; background:${activo ? '#D1FAE5' : '#FEE2E2'}; color:${activo ? '#047857' : '#B91C1C'}; padding:2px 6px; border-radius:4px; font-weight:700;">${activo ? 'Habilitado' : 'Suspendido'}</span>
@@ -500,7 +551,7 @@
                         <p style="margin:4px 0 2px 0; font-size:12px; color:var(--text-muted);"><b>CI:</b> ${c.ci || 'Sin CI'} | <b>Tel:</b> ${c.telefono || 'Sin tel'}</p>
                         <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">🛵 Vehículo: <b>${c.vehiculo || 'Moto'}</b></p>
                         
-                        <div style="margin-top:8px; border-top:1px solid var(--border); pt-top:6px; text-align:right;">
+                        <div style="margin-top:8px; border-top:1px solid var(--border); pt-top:6px; text-align:right;" onclick="event.stopPropagation()">
                             <button type="button" onclick="toggleEstadoCadete('${c.ci}')" style="width:auto; padding:5px 12px; font-size:11px; background:${activo ? 'var(--danger)' : 'var(--success)'};">
                                 ${activo ? '🚫 Deshabilitar Cadete' : '✓ Habilitar Cadete'}
                             </button>
@@ -518,6 +569,39 @@
             `;
         }
 
+        window.verDetallePlanillaCadete = function(identificador) {
+            let datos = obtenerDatosGlobalesSistema();
+            let cad = datos.cadetes.find(c => String(c.ci).trim() === String(identificador).trim() || String(c.nombre).trim() === String(identificador).trim());
+            if (!cad) return;
+
+            // Cálculo financiero para el cadete (70% del valor del envío + propinas netas descontando MP y comisiones)
+            let enviosCadete = datos.listaPedidosGlobales.filter(p => String(p.cadeteNombre).trim() === String(cad.nombre).trim() || String(p.ciCadete).trim() === String(cad.ci).trim());
+            let totalEnviosBruto = enviosCadete.reduce((acc, p) => acc + (parseFloat(p.valorEnvio) || 90), 0);
+            let totalPropinasBruto = enviosCadete.reduce((acc, p) => acc + (parseFloat(p.propina) || 0), 0);
+            
+            let gananciaEnviosCadete = totalEnviosBruto * 0.70; // 70% para el cadete
+            let descuentoPasarelaMP = (totalPropinasBruto + totalEnviosBruto) * 0.04; // 4% estimado costo MP sobre pagos digitales y propinas
+            let netoACobrarCadete = gananciaEnviosCadete + totalPropinasBruto - descuentoPasarelaMP;
+            let gananciaPlataformaCadetes = totalEnviosBruto * 0.30; // 30% retenido por LO TENGO
+
+            const container = document.getElementById('main-content-admin');
+            container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarListaCadetesAdmin()">← Volver a Cadetes</button>
+                <div class="section-header"><span>Planilla Financiera: ${cad.nombre}</span></div>
+                
+                <div class="card-metric">
+                    <p class="metric-title">Desglose de Liquidación al Cadete</p>
+                    <p style="margin:2px 0; font-size:13px;"><b>CI / Teléfono:</b> ${cad.ci || 'N/A'} | ${cad.telefono || 'Sin tel'}</p>
+                    <p style="margin:2px 0; font-size:13px;"><b>Envíos Realizados:</b> ${enviosCadete.length}</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--success);"><b>Participación Envíos (70%):</b> +$${gananciaEnviosCadete.toFixed(2)}</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--success);"><b>Propinas Digitales Íntegramente:</b> +$${totalPropinasBruto.toFixed(2)}</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--danger);"><b>Descuento Pasarela Mercado Pago (4%):</b> -$${descuentoPasarelaMP.toFixed(2)}</p>
+                    <p style="margin:2px 0; font-size:14px; font-weight:800; color:var(--accent);"><b>Neto a Pagar al Cadete:</b> $${netoACobrarCadete.toFixed(2)}</p>
+                    <p style="margin:4px 0 0 0; font-size:11px; color:var(--text-muted);">Retención LO TENGO (30% de envíos): +$${gananciaPlataformaCadetes.toFixed(2)}</p>
+                </div>
+            `;
+        };
+
         window.toggleEstadoCadete = function(ci) {
             let base = JSON.parse(localStorage.getItem('lt_base_cadetes')) || [];
             let cad = base.find(c => String(c.ci).trim() === String(ci).trim());
@@ -530,7 +614,7 @@
         };
 
         // ==========================================
-        // GESTIÓN DE CLIENTES Y EXPORTACIÓN EXCEL
+        // GESTIÓN DE CLIENTES Y PLANILLA DETALLADA
         // ==========================================
         function mostrarListaClientesAdmin() {
             actualizarMenuActivoAdmin(4);
@@ -538,7 +622,7 @@
             const container = document.getElementById('main-content-admin');
 
             let htmlClientes = datos.clientes.map(cli => `
-                <div class="card-metric" style="border-left: 5px solid var(--success);">
+                <div class="card-metric" style="border-left: 5px solid var(--success); cursor:pointer;" onclick="verDetallePlanillaCliente('${cli.telefono}')">
                     <h4 style="margin:0 0 4px 0; font-size:15px; font-weight:800; color:var(--primary);">${cli.nombre}</h4>
                     <p style="margin:2px 0; font-size:12px; color:var(--text-muted);">📞 Tel: <b>${cli.telefono}</b> | 📍 ${cli.direccion || 'Montevideo'}</p>
                 </div>
@@ -552,6 +636,53 @@
                 ${htmlClientes}
             `;
         }
+
+        window.verDetallePlanillaCliente = function(telefono) {
+            let datos = obtenerDatosGlobalesSistema();
+            let cli = datos.clientes.find(c => String(c.telefono).trim() === String(telefono).trim());
+            if (!cli) return;
+
+            let pedidosCliente = datos.listaPedidosGlobales.filter(p => String(p.telefonoCliente).trim() === String(cli.telefono).trim());
+            let totalGastado = pedidosCliente.reduce((acc, p) => acc + (parseFloat(p.total) || 0), 0);
+
+            const container = document.getElementById('main-content-admin');
+            container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarListaClientesAdmin()">← Volver a Clientes</button>
+                <div class="section-header"><span>Planilla del Cliente: ${cli.nombre}</span></div>
+                
+                <div class="card-metric">
+                    <p class="metric-title">Datos del Usuario</p>
+                    <p style="margin:2px 0; font-size:13px;"><b>Teléfono / WhatsApp:</b> ${cli.telefono}</p>
+                    <p style="margin:2px 0; font-size:13px;"><b>Dirección habitual:</b> ${cli.direccion || 'Montevideo'}</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--success);"><b>Total de Pedidos Realizados:</b> ${pedidosCliente.length}</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--success);"><b>Volumen Consumido:</b> $${totalGastado.toFixed(2)}</p>
+                </div>
+
+                <div class="section-header"><span>Historial de Órdenes</span></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Comercio</th>
+                                <th>Estado</th>
+                                <th style="text-align:right;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${pedidosCliente.map(p => `
+                                <tr>
+                                    <td>#${p.id ? p.id.toString().slice(-4) : '0000'}</td>
+                                    <td>${p.comercioNombre || 'Comercio'}</td>
+                                    <td>${p.estado || 'Activo'}</td>
+                                    <td style="text-align:right; font-weight:700;">$${p.total || 0}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="4" style="text-align:center;">Sin pedidos en la plataforma.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        };
 
         window.exportarExcelRol = function(tipo) {
             let datos = obtenerDatosGlobalesSistema();
@@ -719,6 +850,9 @@
             mostrarGestionPedidosAdmin();
         };
 
+        // ==========================================
+        // MOTOR DE IA & ADS (CONECTADO CON APP CLIENTES)
+        // ==========================================
         function mostrarCampañasIAAdmin() {
             actualizarMenuActivoAdmin(5);
             const container = document.getElementById('main-content-admin');
@@ -727,21 +861,37 @@
                 <div class="section-header"><span>🎯 Motor de Ofertas e IA</span></div>
                 <div class="card-metric" style="border-left: 5px solid #7C3AED;">
                     <div style="font-size: 10px; font-weight: 900; background: #FAF5FF; color: #7C3AED; padding: 3px 8px; border-radius: 6px; display: inline-block; margin-bottom: 8px; border:1px solid #C084FC;">ADS Y DESTACADOS</div>
-                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 900;">Notificador de Ofertas Push</h3>
-                    <label>Título de la Campaña:</label>
-                    <input type="text" id="campaniaTitulo" placeholder="Ej: ¡20% OFF en comercios destacados esta semana!">
-                    <button type="button" onclick="lanzarNotificacionOfertas()" style="background:#7C3AED; font-weight:800; margin-top:6px;">🚀 Enviar Campaña Push</button>
+                    <h3 style="margin: 0 0 6px 0; font-size: 16px; font-weight: 900;">Notificador Masivo Push a Clientes</h3>
+                    <label>Título / Mensaje de la Campaña:</label>
+                    <input type="text" id="campaniaTitulo" placeholder="Ej: ¡20% OFF en toda la categoría gastronómica hoy!">
+                    <button type="button" onclick="lanzarNotificacionOfertas()" style="background:#7C3AED; font-weight:800; margin-top:6px;">🚀 Enviar Campaña Masiva</button>
                 </div>
             `;
         }
 
         window.lanzarNotificacionOfertas = function() {
             let titulo = document.getElementById('campaniaTitulo').value.trim();
-            if (!titulo) { alert("⚠️ Ingresá el título."); return; }
-            alert(`✅ ¡Campaña enviada con éxito!\n"${titulo}"`);
+            if (!titulo) { alert("⚠️ Ingresá el título o mensaje de la campaña."); return; }
+
+            // Guardar en almacenamiento global para que la App de Clientes lo lea o dispare
+            let campañas = JSON.parse(localStorage.getItem('lt_campañas_push')) || [];
+            let nuevaCampania = { id: Date.now(), mensaje: titulo, fecha: new Date().toLocaleTimeString() };
+            campañas.push(nuevaCampania);
+            localStorage.setItem('lt_campañas_push', JSON.stringify(campañas));
+
+            // Sincronizar por WebSocket si está conectado para notificar a la app de clientes
+            if (socket && socket.connected) {
+                socket.emit('broadcast_campana_clientes', nuevaCampania);
+            }
+
+            window.dispatchEvent(new Event('storage'));
+            alert(`✅ ¡Campaña masiva enviada a todos los clientes!\n"${titulo}"`);
         };
 
-        function mostrarLiquidacionEmpresas() {
+        // ==========================================
+        // FINANZAS Y LIQUIDACIONES GENERALES
+        // ==========================================
+        function mostrarLiquidacionGeneral() {
             actualizarMenuActivoAdmin(6);
             let datos = obtenerDatosGlobalesSistema();
             const container = document.getElementById('main-content-admin');
@@ -768,7 +918,16 @@
             }).join('') || '<tr><td colspan="5" style="text-align:center; padding:15px; color:var(--text-muted);">Sin comercios.</td></tr>';
 
             container.innerHTML = `
-                <div class="section-header"><span>Liquidación a Comercios (Comisión 10%)</span></div>
+                <div class="section-header"><span>Balance Financiero y Liquidación</span></div>
+                
+                <div class="card-metric" style="margin-bottom:15px;">
+                    <p class="metric-title">Resumen de Ingresos Netos LO TENGO</p>
+                    <p style="margin:2px 0; font-size:13px; color:var(--success);"><b>Comisiones Comercios (10%):</b> +$${datos.totalComisionesPlataforma.toFixed(2)}</p>
+                    <p style="margin:2px 0; font-size:13px; color:#7C3AED;"><b>Ingresos Ads Destacados:</b> +$${datos.ingresosPublicidadDestacados.toFixed(2)}</p>
+                    <p style="margin:2px 0; font-size:15px; font-weight:900; color:var(--primary); margin-top:6px;">Total Recaudación Neta: $${(datos.totalComisionesPlataforma + datos.ingresosPublicidadDestacados).toFixed(2)}</p>
+                </div>
+
+                <div class="section-header"><span>Detalle por Comercio</span></div>
                 <div class="table-container">
                     <table>
                         <thead>

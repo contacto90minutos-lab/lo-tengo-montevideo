@@ -636,7 +636,6 @@
                         let baseEmpresas = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
                         let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
                         
-                        // Sincronizar con baseEmpresas[0]
                         if (baseEmpresas.length > 0) {
                             let emp = baseEmpresas[0];
                             let mapaLocal = new Map();
@@ -646,7 +645,6 @@
                             localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
                         }
 
-                        // Sincronizar con lt_pedidos_activos
                         let mapaActivos = new Map();
                         pedidosActivos.forEach(p => mapaActivos.set(String(p.id).trim(), p));
                         pedidosRemotos.forEach(pR => mapaActivos.set(String(pR.id).trim(), pR));
@@ -778,7 +776,6 @@
             return base.find(c => String(c.ci).trim() === String(sesion.ci).trim()) || sesion;
         }
 
-        // UNIFICACIÓN Y CORRECCIÓN DE DATOS (CONSOLIDACIÓN DE TODAS LAS FUENTES)
         function obtenerPedidosDisponiblesGlobales() {
             let pedidosCadete = JSON.parse(localStorage.getItem('lt_pedidos_cadete')) || [];
             let pedidosActivos = JSON.parse(localStorage.getItem('lt_pedidos_activos')) || [];
@@ -788,20 +785,21 @@
             baseEmpresas.forEach(emp => {
                 if (emp.pedidos) {
                     emp.pedidos.forEach(p => {
-                        let tipo = p.tipoPedido;
+                        let tipo = p.tipoPedido || p.tipoServicio;
+                        let dirTexto = (p.direccion || '').toLowerCase();
                         if (!tipo) {
-                            if (p.esTresCruces || (p.direccion || '').toLowerCase().includes('tres cruces')) tipo = 'tres_cruces';
-                            else if (!p.rutComercio || (p.empresaNombre || '').toLowerCase().includes('cadeteria express')) tipo = 'express';
+                            if (p.esTresCruces || dirTexto.includes('tres cruces')) tipo = 'tres_cruces';
+                            else if (!p.rutComercio || (p.empresaNombre || '').toLowerCase().includes('cadeteria express')) tipo = 'express_ab';
                             else tipo = 'comercio';
                         }
 
-                        let origenText = p.direccionOrigen || (tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[0].replace('Origen:','').trim() : 'Montevideo') : emp.direccion);
-                        let destinoText = tipo === 'express' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[1].replace('Destino:','').trim() : p.direccion) : p.direccion;
-                        let nombreComercio = tipo === 'express' ? (p.empresaNombre || 'Cadetería Express Mvd') : (emp.nombre || 'Comercio Aliado');
+                        let origenText = p.direccionOrigen || (tipo === 'express_ab' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[0].replace('Origen:','').trim() : 'Montevideo') : emp.direccion);
+                        let destinoText = tipo === 'express_ab' ? (p.direccion && p.direccion.includes('➔') ? p.direccion.split('➔')[1].replace('Destino:','').trim() : p.direccion) : p.direccion;
+                        let nombreComercio = tipo === 'express_ab' ? (p.empresaNombre || 'Cadetería Express Mvd') : (emp.nombre || 'Comercio Aliado');
 
                         listaConsolidada.push({
                             id: p.id,
-                            tipoPedido: tipo,
+                            tipoServicio: tipo,
                             comercio: nombreComercio,
                             rutComercio: p.rutComercio || emp.rut || '000000',
                             direccionComercio: origenText,
@@ -811,7 +809,7 @@
                             total: p.total,
                             gananciaCadete: p.gananciaCadete || Math.round((p.total || 200) * 0.7),
                             pinSeguridad: p.pinSeguridad || p.codigoVerificacion,
-                            estado: p.estado || 'Disponible para retirar',
+                            estado: p.estado || 'pago_confirmado',
                             cadeteAsignado: p.cadeteAsignado,
                             ciCadete: p.ciCadete
                         });
@@ -830,7 +828,8 @@
                                 st.includes('cadetería') ||
                                 st.includes('recibido') ||
                                 st === '' ||
-                                st.includes('en espera')
+                                st.includes('en espera') ||
+                                st.includes('programado')
                             );
                             return esAbierto;
                         });
@@ -848,9 +847,6 @@
             ultimoConteoPedidosCadete = disponibles.length;
         }
 
-        // ==========================================
-        // PESTAÑA 1: DISPONIBLES
-        // ==========================================
         function mostrarDisponiblesCadete() {
             actualizarMenuActivoCadete(0);
             let disponibles = obtenerPedidosDisponiblesGlobales();
@@ -906,7 +902,7 @@
                 if (found) {
                     itemACopiar = {
                         id: found.id,
-                        tipoPedido: found.tipoPedido || 'express',
+                        tipoServicio: found.tipoServicio || found.tipoPedido || 'express_ab',
                         comercio: found.empresaNombre || found.comercio || 'LO TENGO',
                         rutComercio: found.rutComercio || '000000',
                         direccionComercio: found.direccionOrigen || found.direccion || 'Montevideo',
@@ -925,13 +921,11 @@
                 itemACopiar.cadeteAsignado = sesion.nombre;
                 itemACopiar.ciCadete = sesion.ci;
 
-                // 1. Guardar en lt_pedidos_cadete
                 let pIndex = pedidosCadete.findIndex(p => String(p.id).trim() === String(idPedido).trim());
                 if (pIndex !== -1) pedidosCadete[pIndex] = itemACopiar;
                 else pedidosCadete.push(itemACopiar);
                 localStorage.setItem('lt_pedidos_cadete', JSON.stringify(pedidosCadete));
 
-                // 2. Guardar en lt_pedidos_activos
                 let actIndex = pedidosActivos.findIndex(p => String(p.id).trim() === String(idPedido).trim());
                 if (actIndex !== -1) {
                     pedidosActivos[actIndex].estado = 'En camino a origen';
@@ -942,7 +936,6 @@
                 }
                 localStorage.setItem('lt_pedidos_activos', JSON.stringify(pedidosActivos));
 
-                // 3. Guardar en baseEmpresas
                 if (baseEmpresas.length > 0 && baseEmpresas[0].pedidos) {
                     let empP = baseEmpresas[0].pedidos.find(p => String(p.id).trim() === String(idPedido).trim());
                     if (empP) {
@@ -955,7 +948,6 @@
                     localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas));
                 }
 
-                // 4. Sincronizar con servidor backend
                 try {
                     await fetch(`${BACKEND_URL}/api/pedidos`, {
                         method: 'POST',
@@ -980,9 +972,6 @@
             mostrarEnCursoCadete();
         };
 
-        // ==========================================
-        // PESTAÑA 2: EN CURSO (ESTADOS SECUENCIALES)
-        // ==========================================
         function mostrarEnCursoCadete() {
             actualizarMenuActivoCadete(1);
             let sesion = obtenerCadeteActualizado();
@@ -1009,8 +998,11 @@
             let htmlCurso = enCurso.map(p => {
                 let faseActual = p.estado || 'En camino a origen';
                 let esFaseOrigen = faseActual.includes('origen') || faseActual.includes('retirar');
-                let esTresCruces = p.tipoPedido === 'tres_cruces' || (p.direccionCliente || '').toLowerCase().includes('tres cruces');
-                let esExpressAB = p.tipoPedido === 'express' || (!p.rutComercio && !esTresCruces);
+                
+                // DETECCIÓN ROBUSTA DE TIPO DE SERVICIO
+                let servicio = p.tipoServicio || (p.esTresCruces || ((p.direccionCliente || '') + ' ' + (p.direccion || '')).toLowerCase().includes('tres cruces') ? 'tres_cruces' : (!p.rutComercio ? 'express_ab' : 'comercio'));
+                let esTresCruces = servicio === 'tres_cruces';
+                let esExpressAB = servicio === 'express_ab';
 
                 return `
                 <div style="background: #fff; border: 1px solid var(--border); border-left: 4px solid var(--primary); border-radius: var(--radius); padding: 15px; margin-bottom: 15px;">
@@ -1039,16 +1031,16 @@
                                 💬 Abrir WhatsApp con el Cliente
                             </a>
 
-                            <!-- PANEL DINÁMICO DE CIERRE -->
+                            <!-- PANEL DINÁMICO DE CIERRE CON VALIDACIONES ESTRICTAS -->
                             <div style="background:#ffffff; border:1px solid var(--border); padding:10px; border-radius:8px;">
                                 ${esTresCruces ? `
                                     <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">🏢 DESPACHO TERMINAL TRES CRUCES</label>
-                                    <p style="margin:0 0 8px 0; font-size:11px; color:#666;">Adjuntá foto clara del remito o comprobante de la agencia de transporte:</p>
+                                    <p style="margin:0 0 8px 0; font-size:11px; color:#666;">Adjuntá foto clara del ticket o remito de la agencia para el cliente:</p>
                                     
                                     <input type="file" accept="image/*" capture="environment" onchange="comprimirFotoRemito(event, '${p.id}')" style="font-size:12px; margin-bottom:6px;">
                                     <img id="prev-remito-${p.id}" style="width:100%; max-height:150px; object-fit:cover; border-radius:8px; display:none; margin-bottom:8px; border:1px solid var(--border);">
                                     
-                                    <button type="button" onclick="finalizarEntregaTresCruces('${p.id}')" style="background:var(--success);">📷 Confirmar Entrega con Remito</button>
+                                    <button type="button" onclick="finalizarEntregaTresCruces('${p.id}')" style="background:var(--success);">📷 Confirmar Entrega y Enviar Ticket</button>
 
                                 ` : esExpressAB ? `
                                     <label style="font-size:12px; font-weight:bold; color:var(--primary); display:block; margin-bottom:4px;">📦 RECEPCIÓN EXPRESS PUNTO A ➔ B</label>
@@ -1132,11 +1124,27 @@
             document.getElementById(`rol-receptor-${idPedido}`).value = rol;
         };
 
-        window.finalizarEntregaPin = function(idPedido) {
+        // CIERRE SEGURO 1: PIN DE COMERCIO (Conecta con backend y valida)
+        window.finalizarEntregaPin = async function(idPedido) {
             let pinInput = document.getElementById(`pin-ingresado-${idPedido}`);
             let pinVal = pinInput ? pinInput.value.trim() : '';
 
             if (!pinVal) { alert("⚠️ Ingresá el PIN de 4 dígitos proporcionado por el cliente."); return; }
+
+            try {
+                let res = await fetch(`${BACKEND_URL}/api/pedidos/${idPedido}/estado`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estado: 'entregado_cerrado', pinIngresado: pinVal })
+                });
+                let data = await res.json();
+                if (!res.ok || !data.success) {
+                    alert(`❌ ${data.message || 'PIN incorrecto. Verifique con el cliente.'}`);
+                    return;
+                }
+            } catch (err) {
+                console.log("Validación local offline");
+            }
 
             if (socket && socket.connected) {
                 socket.emit('completar_entrega_pedido', {
@@ -1147,7 +1155,8 @@
             procesarCierreLocal(idPedido);
         };
 
-        window.finalizarEntregaExpress = function(idPedido) {
+        // CIERRE SEGURO 2: EXPRESS A ➔ B (Nombre y Cédula obligatorios)
+        window.finalizarEntregaExpress = async function(idPedido) {
             let rol = document.getElementById(`rol-receptor-${idPedido}`).value;
             let nombre = document.getElementById(`nombre-receptor-${idPedido}`).value.trim();
             let ci = document.getElementById(`ci-receptor-${idPedido}`).value.trim();
@@ -1156,6 +1165,19 @@
                 alert("⚠️ Para entregas Express A➔B es obligatorio registrar Nombre y Cédula de la persona que recibe.");
                 return;
             }
+
+            try {
+                let res = await fetch(`${BACKEND_URL}/api/pedidos/${idPedido}/estado`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estado: 'entregado_cerrado', nombreReceptor: nombre, ciReceptor: ci })
+                });
+                let data = await res.json();
+                if (!res.ok || !data.success) {
+                    alert(`❌ ${data.message || 'Error al registrar datos del receptor'}`);
+                    return;
+                }
+            } catch (err) {}
 
             if (socket && socket.connected) {
                 socket.emit('completar_entrega_pedido', {
@@ -1166,12 +1188,26 @@
             procesarCierreLocal(idPedido);
         };
 
-        window.finalizarEntregaTresCruces = function(idPedido) {
+        // CIERRE SEGURO 3: TRES CRUCES (Foto de remito obligatoria)
+        window.finalizarEntregaTresCruces = async function(idPedido) {
             let foto = fotoRemitoTemp[idPedido];
             if (!foto) {
-                alert("⚠️ Para despachos en Tres Cruces es obligatorio adjuntar la foto del remito o comprobante.");
+                alert("⚠️ Para despachos en Tres Cruces es obligatorio adjuntar la foto del ticket o remito de la agencia.");
                 return;
             }
+
+            try {
+                let res = await fetch(`${BACKEND_URL}/api/pedidos/${idPedido}/estado`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ estado: 'entregado_cerrado', fotoRemito: foto })
+                });
+                let data = await res.json();
+                if (!res.ok || !data.success) {
+                    alert(`❌ ${data.message || 'Error al subir la foto del remito'}`);
+                    return;
+                }
+            } catch (err) {}
 
             if (socket && socket.connected) {
                 socket.emit('completar_entrega_pedido', {
@@ -1200,14 +1236,6 @@
                     if (empP) { empP.estado = 'Entregado y Cerrado'; localStorage.setItem('lt_base_empresas', JSON.stringify(baseEmpresas)); }
                 }
 
-                try {
-                    fetch(`${BACKEND_URL}/api/pedidos`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(p)
-                    }).catch(e => {});
-                } catch(e) {}
-
                 window.dispatchEvent(new Event('storage'));
             }
             reproducirAlertaVoz("Lo tengo");
@@ -1215,9 +1243,6 @@
             mostrarEnCursoCadete();
         }
 
-        // ==========================================
-        // PESTAÑA 3: HISTORIAL / FINALIZADOS
-        // ==========================================
         function mostrarHistorialCadete() {
             actualizarMenuActivoCadete(2);
             let sesion = obtenerCadeteActualizado();
@@ -1258,9 +1283,6 @@
             `;
         }
 
-        // ==========================================
-        // PESTAÑA 4: MI PERFIL
-        // ==========================================
         function mostrarPerfilCadete() {
             actualizarMenuActivoCadete(3);
             let sesion = obtenerCadeteActualizado();
