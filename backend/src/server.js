@@ -34,6 +34,53 @@ configurarSockets(io);
 // Rutas modularizadas
 app.use('/api/pedidos', require('./routes/pedidos'));
 
+// 🏢 RUTAS DE EMPRESAS Y COMERCIOS ALIADOS (Soluciona el error 404 del cliente)
+let baseEmpresasServer = [
+  {
+    rut: "219999990012",
+    nombre: "Restaurante El Fogón Montevideo",
+    giro: "Gastronomía",
+    direccion: "Av. 18 de Julio 1000, Montevideo",
+    telefono: "099111222",
+    logo: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=400&q=80",
+    productos: [
+      { id: 1, nombre: "Chivito al Plato Clásico", precio: 480, imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80", outlet: false },
+      { id: 2, nombre: "Milanesa a la Napolitana con Fritas", precio: 420, imagen: "https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?auto=format&fit=crop&w=400&q=80", outlet: true }
+    ],
+    pedidos: []
+  },
+  {
+    rut: "218888880015",
+    nombre: "Supermercado El Dorado Mvd",
+    giro: "Supermercado",
+    direccion: "Bv. General Artigas 2500, Montevideo",
+    telefono: "099333444",
+    logo: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=400&q=80",
+    productos: [
+      { id: 101, nombre: "Canasta Básica Familiar Surtido", precio: 1250, imagen: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80", outlet: false }
+    ],
+    pedidos: []
+  }
+];
+
+app.get('/api/empresas', (req, res) => {
+  res.json(baseEmpresasServer);
+});
+
+app.post('/api/empresas', (req, res) => {
+  const nuevaEmpresa = req.body;
+  if (nuevaEmpresa && nuevaEmpresa.rut) {
+    const index = baseEmpresasServer.findIndex(e => String(e.rut).trim() === String(nuevaEmpresa.rut).trim());
+    if (index !== -1) {
+      baseEmpresasServer[index] = { ...baseEmpresasServer[index], ...nuevaEmpresa };
+    } else {
+      baseEmpresasServer.push(nuevaEmpresa);
+    }
+    return res.json({ success: true, empresa: nuevaEmpresa });
+  }
+  res.status(400).json({ success: false, message: "RUT de empresa requerido" });
+});
+
 // 💳 RUTA DE MERCADO PAGO: Creación de Preferencias de Pago (Soporta test de $15 UYU o montos reales)
 app.post('/api/pagos/crear-preferencia', async (req, res) => {
   try {
