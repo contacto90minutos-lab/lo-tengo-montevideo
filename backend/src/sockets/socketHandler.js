@@ -6,7 +6,8 @@ function iniciarDespachoInteligente(pedido, io) {
   let origenLat = pedido.origenLat || -34.9032;
   let origenLng = pedido.origenLng || -56.1882;
 
-  if (pedido.rutComercio) {
+  // SÓLO si es un pedido de comercio usamos las coordenadas de la empresa
+  if (pedido.tipoServicio === 'comercio' && pedido.rutComercio) {
     let emp = baseEmpresas.find(e => String(e.rut).trim() === String(pedido.rutComercio).trim());
     if (emp && emp.lat && emp.lng) {
       origenLat = emp.lat;
@@ -101,7 +102,10 @@ function configurarSockets(io) {
 
           despacho.pedido.idCadete = cadeteInfo.id;
           despacho.pedido.nombreCadete = cadeteInfo.nombre;
-          despacho.pedido.estado = 'en_camino_a_retirar';
+
+          // ASIGNACIÓN DE ESTADO SEGÚN EL CARRIL CORRECTO
+          const esComercio = despacho.pedido.tipoServicio === 'comercio' && despacho.pedido.rutComercio;
+          despacho.pedido.estado = esComercio ? 'en_camino_a_retirar_local' : 'pendiente_retiro_origen';
 
           if (!cajaCadetes[cadeteInfo.id]) {
             cajaCadetes[cadeteInfo.id] = { gananciasEnvios: 0, propinas: 0, historial: [] };
@@ -156,12 +160,10 @@ function configurarSockets(io) {
       io.emit('pedido_entregado_exito', pedidoEncontrado);
     });
 
-    // 🆕 NUEVO: Sincronización de cambio de estado de pedidos desde comercios
     socket.on('cambiar_estado_pedido', (data) => {
       io.emit('actualizacion_pedido', data);
     });
 
-    // 🆕 NUEVO: Propagación masiva de campañas y descuentos de IA & Ads a clientes
     socket.on('broadcast_campana_clientes', (campania) => {
       io.emit('nueva_campana_push', campania);
     });
