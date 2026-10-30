@@ -1,149 +1,223 @@
-// backend/src/server.js
+// backend/src/routes/pedidos.js
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config();
+const router = express.Router();
+const { pedidosGlobales, baseEmpresas } = require('../memoryDB');
+const { calcularCostoEnvio } = require('../utils/helpers');
 
-const app = express();
-const server = http.createServer(app);
-
-// Middlewares
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-
-// Archivos estáticos de los portales
-const rootDir = path.resolve(__dirname, '../../');
-app.use(express.static(path.join(rootDir, 'cliente/public')));
-app.use('/empresa', express.static(path.join(rootDir, 'empresa')));
-app.use('/cadete', express.static(path.join(rootDir, 'cadete')));
-app.use('/admin', express.static(path.join(rootDir, 'admin')));
-
-app.get('/empresa', (req, res) => res.sendFile(path.join(rootDir, 'empresa/index.html')));
-app.get('/cadete', (req, res) => res.sendFile(path.join(rootDir, 'cadete/index.html')));
-app.get('/admin', (req, res) => res.sendFile(path.join(rootDir, 'admin/index.html')));
-
-// WebSockets
-const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
-app.set('io', io);
-
-const { configurarSockets } = require('./sockets/socketHandler');
-configurarSockets(io);
-
-// Rutas modularizadas
-app.use('/api/pedidos', require('./routes/pedidos'));
-
-// 🏢 RUTAS DE EMPRESAS Y COMERCIOS ALIADOS (Soluciona el error 404 del cliente)
-let baseEmpresasServer = [
-  {
-    rut: "219999990012",
-    nombre: "Restaurante El Fogón Montevideo",
-    giro: "Gastronomía",
-    direccion: "Av. 18 de Julio 1000, Montevideo",
-    telefono: "099111222",
-    logo: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=400&q=80",
-    productos: [
-      { id: 1, nombre: "Chivito al Plato Clásico", precio: 480, imagen: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80", outlet: false },
-      { id: 2, nombre: "Milanesa a la Napolitana con Fritas", precio: 420, imagen: "https://images.unsplash.com/photo-1627308595229-7830a5c91f9f?auto=format&fit=crop&w=400&q=80", outlet: true }
-    ],
-    pedidos: []
-  },
-  {
-    rut: "218888880015",
-    nombre: "Supermercado El Dorado Mvd",
-    giro: "Supermercado",
-    direccion: "Bv. General Artigas 2500, Montevideo",
-    telefono: "099333444",
-    logo: "https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=400&q=80",
-    productos: [
-      { id: 101, nombre: "Canasta Básica Familiar Surtido", precio: 1250, imagen: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=400&q=80", outlet: false }
-    ],
-    pedidos: []
+router.post('/cotizar', (req, res) => {
+  const { tipoVehiculo, distanciaKm, retornoOrigen } = req.body;
+  if (!tipoVehiculo || distanciaKm === undefined) {
+    return res.status(400).json({ success: false, message: "Datos incompletos para cotizar" });
   }
-];
-
-app.get('/api/empresas', (req, res) => {
-  res.json(baseEmpresasServer);
+  const costoEnvio = calcularCostoEnvio(tipoVehiculo, parseFloat(distanciaKm), Boolean(retornoOrigen));
+  res.json({ success: true, costoTotalEnvio: costoEnvio });
 });
 
-app.post('/api/empresas', (req, res) => {
-  const nuevaEmpresa = req.body;
-  if (nuevaEmpresa && nuevaEmpresa.rut) {
-    const index = baseEmpresasServer.findIndex(e => String(e.rut).trim() === String(nuevaEmpresa.rut).trim());
-    if (index !== -1) {
-      baseEmpresasServer[index] = { ...baseEmpresasServer[index], ...nuevaEmpresa };
-    } else {
-      baseEmpresasServer.push(nuevaEmpresa);
-    }
-    return res.json({ success: true, empresa: nuevaEmpresa });
-  }
-  res.status(400).json({ success: false, message: "RUT de empresa requerido" });
-});
+router.get('/', (req, res) => {
+  let todosLosPedidos = [...pedidosGlobales];
+  let idsSet = new Set(todosLosPedidos.map(p => String(p.id).trim()));
 
-// 💳 RUTA DE MERCADO PAGO: Creación de Preferencias de Pago (Soporta test de $15 UYU o montos reales)
-app.post('/api/pagos/crear-preferencia', async (req, res) => {
-  try {
-    const { titulo, precio, cantidad = 1, external_reference } = req.body;
-    const accessToken = process.env.MP_ACCESS_TOKEN || "TEST-ACCESS-TOKEN";
-
-    // Petición HTTP a la API oficial de Mercado Pago para generar la preferencia
-    const mpResponse = await fetch("https://api.mercadopago.com/checkout/preferences", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${accessToken}`
-      },
-      body: JSON.stringify({
-        items: [
-          {
-            title: titulo || "Prueba de Pago / Servicio LO TENGO",
-            quantity: Number(cantidad),
-            unit_price: Number(precio),
-            currency_id: "UYU"
-          }
-        ],
-        external_reference: external_reference || "LO-TENGO-TEST-15",
-        back_urls: {
-          success: `${req.protocol}://${req.get('host')}/pago-exitoso.html`,
-          failure: `${req.protocol}://${req.get('host')}/pago-fallido.html`,
-          pending: `${req.protocol}://${req.get('host')}/pago-pendiente.html`
-        },
-        auto_return: "approved"
-      })
-    });
-
-    const data = await mpResponse.json();
-
-    if (data.id) {
-      return res.json({
-        success: true,
-        preferenceId: data.id,
-        initPoint: data.init_point,
-        sandboxInitPoint: data.sandbox_init_point
-      });
-    } else {
-      // Modo seguro de respaldo para desarrollo o pruebas offline de $15 UYU
-      return res.json({
-        success: true,
-        preferenceId: "mock_pref_lotengo_" + Date.now(),
-        initPoint: "#",
-        sandboxInitPoint: "#",
-        mensaje: "Modo simulado activo. Configure MP_ACCESS_TOKEN en variables de entorno para pasarela real de Mercado Pago."
+  baseEmpresas.forEach(emp => { 
+    if (emp.pedidos && Array.isArray(emp.pedidos)) {
+      emp.pedidos.forEach(p => {
+        let idStr = String(p.id).trim();
+        if (!idsSet.has(idStr)) {
+          idsSet.add(idStr);
+          todosLosPedidos.push(p);
+        }
       });
     }
-  } catch (error) {
-    console.error("Error al procesar pago en Mercado Pago:", error);
-    res.status(500).json({ success: false, error: error.message });
+  });
+  res.json(todosLosPedidos);
+});
+
+router.post('/', (req, res) => {
+  const nuevoPedido = req.body; 
+  if (!nuevoPedido.id) nuevoPedido.id = Date.now();
+  
+  // Generar PIN de seguridad de 4 dígitos para comercios
+  nuevoPedido.pinSeguridad = Math.floor(1000 + Math.random() * 9000).toString();
+
+  // Compatibilidad por si el carrito envía 'items' en lugar de 'productos'
+  if (!nuevoPedido.productos && nuevoPedido.items) {
+    nuevoPedido.productos = nuevoPedido.items;
   }
+
+  // Determinar tipo de servicio si no viene especificado
+  if (!nuevoPedido.tipoServicio) {
+    if (nuevoPedido.rutComercio && nuevoPedido.productos && nuevoPedido.productos.length > 0) {
+      nuevoPedido.tipoServicio = 'comercio';
+    } else if (nuevoPedido.tipoPedido === 'tres_cruces' || nuevoPedido.destino === 'Tres Cruces') {
+      nuevoPedido.tipoServicio = 'tres_cruces';
+    } else {
+      nuevoPedido.tipoServicio = 'express_ab';
+    }
+  }
+
+  // Manejo de Estado Inicial: Inmediato vs Programado
+  const esProgramado = Boolean(nuevoPedido.esProgramado);
+  if (esProgramado) {
+    nuevoPedido.estado = 'programado';
+  } else {
+    nuevoPedido.estado = 'pago_confirmado';
+  }
+
+  let distanciaCalculo = parseFloat(nuevoPedido.distanciaKm || nuevoPedido.distancia || 0);
+  let vehiculoCalculo = nuevoPedido.tipoVehiculo || nuevoPedido.vehiculo || 'moto';
+
+  if (distanciaCalculo > 0) {
+    nuevoPedido.valorEnvio = calcularCostoEnvio(
+      vehiculoCalculo, 
+      distanciaCalculo, 
+      Boolean(nuevoPedido.retornoOrigen)
+    );
+  }
+
+  let comisionComercio = nuevoPedido.valorProducto ? (nuevoPedido.valorProducto * 0.10) : 0; 
+  let comisionEnvio = nuevoPedido.valorEnvio ? (nuevoPedido.valorEnvio * 0.30) : 0; 
+  let gananciaCadete = nuevoPedido.valorEnvio ? (nuevoPedido.valorEnvio - comisionEnvio) : (nuevoPedido.total ? (nuevoPedido.total * 0.70) : 140);
+
+  nuevoPedido.comisionesLoTengo = {
+    comercio: comisionComercio,
+    envio: comisionEnvio,
+    totalPlataforma: comisionComercio + comisionEnvio
+  };
+  nuevoPedido.gananciaCadete = gananciaCadete;
+
+  const io = req.app.get('io');
+
+  // ENRUTAMIENTO ESTRICTO SEGÚN REGLA DE NEGOCIO
+  if (nuevoPedido.tipoServicio === 'comercio' && nuevoPedido.rutComercio) {
+    let empresaDestino = baseEmpresas.find(e => String(e.rut).trim() === String(nuevoPedido.rutComercio).trim());
+    
+    if (!empresaDestino) {
+      return res.status(400).json({ success: false, message: "Comercio no encontrado para el RUT especificado" });
+    }
+
+    if (!empresaDestino.pedidos) empresaDestino.pedidos = [];
+    let indexExistente = empresaDestino.pedidos.findIndex(p => String(p.id).trim() === String(nuevoPedido.id).trim());
+    if (indexExistente !== -1) {
+      empresaDestino.pedidos[indexExistente] = nuevoPedido;
+    } else {
+      empresaDestino.pedidos.push(nuevoPedido);
+    }
+
+    // Notificar exclusivamente al servidor/cocina de la empresa
+    if (io) io.emit('nuevo_pedido_servidor', nuevoPedido);
+
+  } else {
+    // EXPRESS A-B O TRES CRUCES: Exclusivo carril Cliente-Cadete (Globales)
+    // Se asegura limpiar cualquier rutComercio residual para evitar colisiones
+    nuevoPedido.rutComercio = null;
+    
+    // Evitar duplicados en pedidosGlobales
+    let idxG = pedidosGlobales.findIndex(p => String(p.id).trim() === String(nuevoPedido.id).trim());
+    if (idxG !== -1) {
+      pedidosGlobales[idxG] = nuevoPedido;
+    } else {
+      pedidosGlobales.push(nuevoPedido);
+    }
+
+    // Notificar únicamente a la red de cadetes / globales (CERO EMPRESAS)
+    if (io) io.emit('nuevo_pedido_cadete', nuevoPedido);
+  }
+
+  // Si NO es programado, iniciamos el despacho inteligente de inmediato
+  if (!esProgramado) {
+    const { iniciarDespachoInteligente } = require('../sockets/socketHandler');
+    if (iniciarDespachoInteligente) iniciarDespachoInteligente(nuevoPedido, io);
+  }
+
+  res.status(201).json({ success: true, pedido: nuevoPedido });
 });
 
-// Diagnóstico
-app.get('/api/status', (req, res) => {
-  res.json({ status: "API modular de Lo Tengo 100% activa 🚀" });
+// NUEVA RUTA: Actualización de estado y cierre blindado con validaciones (Fin del bucle)
+router.put('/:id/estado', (req, res) => {
+  const { id } = req.params;
+  const { estado, pinIngresado, nombreReceptor, ciReceptor, fotoRemito, calificacion, comentario } = req.body;
+  
+  let pedidoEncontrado = null;
+
+  // Buscar en pedidosGlobales
+  let idxGlobal = pedidosGlobales.findIndex(p => String(p.id).trim() === String(id).trim());
+  if (idxGlobal !== -1) {
+    pedidoEncontrado = pedidosGlobales[idxGlobal];
+  } else {
+    // Buscar en baseEmpresas
+    for (let emp of baseEmpresas) {
+      if (emp.pedidos) {
+        let idx = emp.pedidos.findIndex(p => String(p.id).trim() === String(id).trim());
+        if (idx !== -1) {
+          pedidoEncontrado = emp.pedidos[idx];
+          break;
+        }
+      }
+    }
+  }
+
+  if (!pedidoEncontrado) {
+    return res.status(404).json({ success: false, message: "Pedido no encontrado" });
+  }
+
+  // Si se intenta cerrar el pedido, aplicar validación estricta según el tipo de servicio
+  if (estado === 'entregado_cerrado') {
+    const servicio = pedidoEncontrado.tipoServicio || (pedidoEncontrado.rutComercio ? 'comercio' : 'express_ab');
+
+    if (servicio === 'comercio') {
+      if (!pinIngresado || String(pinIngresado).trim() !== String(pedidoEncontrado.pinSeguridad).trim()) {
+        return res.status(400).json({ success: false, message: "PIN de seguridad incorrecto. Verifique con el cliente." });
+      }
+    } else if (servicio === 'express_ab') {
+      if (!nombreReceptor || !ciReceptor) {
+        return res.status(400).json({ success: false, message: "Debe ingresar el Nombre y la Cédula (CI) de quien recibe." });
+      }
+      pedidoEncontrado.nombreReceptor = nombreReceptor;
+      pedidoEncontrado.ciReceptor = ciReceptor;
+    } else if (servicio === 'tres_cruces') {
+      if (!fotoRemito) {
+        return res.status(400).json({ success: false, message: "La foto del ticket/remito de la agencia es obligatoria." });
+      }
+      pedidoEncontrado.fotoRemito = fotoRemito;
+    }
+
+    pedidoEncontrado.estado = 'entregado_cerrado';
+    if (calificacion) pedidoEncontrado.calificacion = calificacion;
+    if (comentario) pedidoEncontrado.comentario = comentario;
+  } else if (estado) {
+    pedidoEncontrado.estado = estado;
+  }
+
+  const io = req.app.get('io');
+  if (io) io.emit('pedido_actualizado', pedidoEncontrado);
+
+  res.json({ success: true, pedido: pedidoEncontrado });
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Servidor modular corriendo en el puerto ${PORT}`);
+router.delete('/:id', (req, res) => {
+  const { id } = req.params;
+  let eliminado = false;
+
+  let idxGlobal = pedidosGlobales.findIndex(p => String(p.id).trim() === String(id).trim());
+  if (idxGlobal !== -1) {
+    pedidosGlobales.splice(idxGlobal, 1);
+    eliminado = true;
+  }
+
+  baseEmpresas.forEach(emp => {
+    if (emp.pedidos) {
+      let idx = emp.pedidos.findIndex(p => String(p.id).trim() === String(id).trim());
+      if (idx !== -1) {
+        emp.pedidos.splice(idx, 1);
+        eliminado = true;
+      }
+    }
+  });
+
+  if (eliminado) {
+    if (req.app.get('io')) req.app.get('io').emit('pedido_cancelado_admin', { id });
+    return res.json({ success: true, message: "Pedido eliminado correctamente" });
+  }
+  res.status(404).json({ success: false, message: "Pedido no encontrado" });
 });
+
+module.exports = router;
