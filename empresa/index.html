@@ -260,6 +260,7 @@
             <button class="nav-item" onclick="mostrarGestionCatalogo()"><span>📦</span>Catálogo</button>
             <button class="nav-item" onclick="mostrarPedidosEntrantesComercio()"><span id="icon-tab-pedidos">🛎️</span><span id="label-tab-pedidos">Pedidos</span> <span id="badge-pedidos-count" style="background:var(--secondary); color:white; border-radius:50%; padding:1px 4px; font-size:8px; display:inline-block; vertical-align:top; margin-left:1px;">0</span></button>
             <button class="nav-item" onclick="mostrarPedidosEnRutaComercio()"><span>🛵</span>Envíos</button>
+            <button class="nav-item" onclick="mostrarPedidosProgramadosComercio()"><span>🕒</span>Prog</button>
             <button class="nav-item" onclick="mostrarHistorialFinancieroComercio()"><span>💰</span>Historial</button>
             <button class="nav-item" onclick="mostrarPerfilEmpresa()"><span>👤</span>Perfil</button>
             <button class="nav-item" onclick="cerrarSesionEmpresa()"><span>🚪</span>Salir</button>
@@ -348,6 +349,8 @@
                         mostrarPedidosEntrantesComercio();
                     } else if (contenedor && document.getElementById('bandera-vista-envios')) {
                         mostrarPedidosEnRutaComercio();
+                    } else if (contenedor && document.getElementById('bandera-vista-programados')) {
+                        mostrarPedidosProgramadosComercio();
                     }
                 }
             });
@@ -361,7 +364,7 @@
 
             socket.on('nuevo_pedido_servidor', (pedido) => {
                 let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
-                let esExpressO3Cruces = pedido.tipoPedido === 'express' || pedido.tipoPedido === 'tres_cruces' || pedido.esTresCruces;
+                let esExpressO3Cruces = pedido.tipoPedido === 'express' || pedido.tipoPedido === 'tres_cruces' || pedido.esTresCruces || !pedido.rutComercio;
                 if (sesion && pedido.rutComercio && String(pedido.rutComercio).trim() === String(sesion.rut).trim() && !esExpressO3Cruces) {
                     reproducirChicharraAlerta();
                     showToast("🛎️ ¡Nuevo pedido recibido!");
@@ -379,7 +382,6 @@
             });
         }
 
-        // SINCRONIZA EL ESTADO DE Cierre/Entrega DESDE EL MODULO DE CADETES
         function sincronizarEstadosCadeteLocales() {
             let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
             if (!sesion) return;
@@ -404,11 +406,10 @@
                 }
             });
 
-            // Eliminar estrictamente cualquier pedido cruzado de Express o Tres Cruces que se haya colado
             let filtrados = emp.pedidos.filter(p => {
-                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
-                let rutMatch = !p.rutComercio || String(p.rutComercio).trim() === String(emp.rut).trim();
-                return !esExpressO3Cruces && rutMatch;
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
+                let rutMatch = p.rutComercio && String(p.rutComercio).trim() === String(emp.rut).trim();
+                return rutMatch && !esExpressO3Cruces;
             });
 
             if (filtrados.length !== emp.pedidos.length) {
@@ -441,10 +442,9 @@
                                 let nuevosEntrantes = 0;
                                 pedidosRemotos.forEach(pR => {
                                     let esDeEstaEmpresa = pR.rutComercio && String(pR.rutComercio).trim() === String(emp.rut).trim();
-                                    let esExpressO3Cruces = pR.tipoPedido === 'express' || pR.tipoPedido === 'tres_cruces' || pR.esTresCruces;
+                                    let esExpressO3Cruces = pR.tipoPedido === 'express' || pR.tipoPedido === 'tres_cruces' || pR.esTresCruces || !pR.rutComercio;
                                     
                                     if (esDeEstaEmpresa && !esExpressO3Cruces) {
-                                        // Verificar si el cadete ya lo cerró
                                         let matchC = pedidosCadete.find(pc => Number(pc.id) === Number(pR.id));
                                         if (matchC && matchC.estado && matchC.estado.toLowerCase().includes('entregado')) {
                                             pR.estado = 'Entregado y Cerrado';
@@ -456,9 +456,9 @@
                                 });
 
                                 emp.pedidos = Array.from(mapaLocal.values()).filter(p => {
-                                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
-                                    let rutMatch = !p.rutComercio || String(p.rutComercio).trim() === String(emp.rut).trim();
-                                    return !esExpressO3Cruces && rutMatch;
+                                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
+                                    let rutMatch = p.rutComercio && String(p.rutComercio).trim() === String(emp.rut).trim();
+                                    return rutMatch && !esExpressO3Cruces;
                                 });
 
                                 localStorage.setItem('lt_base_empresas', JSON.stringify(base));
@@ -466,7 +466,8 @@
 
                                 let pendientesActuales = emp.pedidos.filter(p => {
                                     let st = (p.estado || '').toLowerCase().trim();
-                                    return st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
+                                    let esProg = p.esProgramado || st.includes('programado');
+                                    return !esProg && st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
                                 }).length;
 
                                 if (pendientesActuales > ultimoConteoPedidos && nuevosEntrantes > 0) {
@@ -645,11 +646,11 @@
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => String(e.rut).trim() === String(rut).trim());
             if (emp) {
-                // Filtrar por seguridad cualquier pedido cruzado
+                // FILTRADO ESTRICTO: Descartar tajantemente express, 3 cruces o pedidos sin RUT
                 emp.pedidos = (emp.pedidos || []).filter(p => {
-                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
-                    let rutMatch = !p.rutComercio || String(p.rutComercio).trim() === String(emp.rut).trim();
-                    return !esExpressO3Cruces && rutMatch;
+                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
+                    let rutMatch = p.rutComercio && String(p.rutComercio).trim() === String(emp.rut).trim();
+                    return rutMatch && !esExpressO3Cruces;
                 });
                 localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
             }
@@ -661,8 +662,10 @@
             if (emp && emp.pedidos) {
                 let pendientes = emp.pedidos.filter(p => {
                     let st = (p.estado || '').toLowerCase().trim();
-                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                    let esProg = p.esProgramado || st.includes('programado');
+                    let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
                     return !esExpressO3Cruces && 
+                           !esProg &&
                            st !== 'listo para retirar (en ruta/cadete)' && 
                            !st.includes('entregado') && 
                            !st.includes('cerrado');
@@ -680,11 +683,20 @@
             const container = document.getElementById('main-content-empresa');
             let totalPedidos = (emp.pedidos || []).filter(p => {
                 let st = (p.estado || '').toLowerCase().trim();
-                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
-                return !esExpressO3Cruces && st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
+                let esProg = p.esProgramado || st.includes('programado');
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
+                return !esExpressO3Cruces && !esProg && st !== 'listo para retirar (en ruta/cadete)' && !st.includes('entregado') && !st.includes('cerrado');
             }).length;
+
+            let totalProgramados = (emp.pedidos || []).filter(p => {
+                let st = (p.estado || '').toLowerCase().trim();
+                let esProg = p.esProgramado || st.includes('programado');
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
+                return !esExpressO3Cruces && esProg && !st.includes('entregado') && !st.includes('cerrado');
+            }).length;
+
             let totalEnRuta = (emp.pedidos || []).filter(p => {
-                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
                 return !esExpressO3Cruces && p.estado === 'Listo para Retirar (En Ruta/Cadete)';
             }).length;
 
@@ -716,6 +728,14 @@
                         <h4 style="margin:4px 0 0 0; color:var(--secondary);">${totalPedidos}</h4>
                         <p style="margin:0; font-size:11px; color:#666;">${tituloCocina}</p>
                     </div>
+                    <div style="background:#fff; border:1px solid var(--border); padding:12px; border-radius:var(--radius); text-align:center; cursor:pointer;" onclick="mostrarPedidosProgramadosComercio()">
+                        <span style="font-size:22px;">🕒</span>
+                        <h4 style="margin:4px 0 0 0; color:#B45309;">${totalProgramados}</h4>
+                        <p style="margin:0; font-size:11px; color:#666;">Programados</p>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr; gap:12px; margin-bottom:15px;">
                     <div style="background:#fff; border:1px solid var(--border); padding:12px; border-radius:var(--radius); text-align:center; cursor:pointer;" onclick="mostrarPedidosEnRutaComercio()">
                         <span style="font-size:22px;">🛵</span>
                         <h4 style="margin:4px 0 0 0; color:var(--success);">${totalEnRuta}</h4>
@@ -835,8 +855,10 @@
 
             let pedidosActivos = (emp.pedidos || []).filter(p => {
                 let st = (p.estado || '').toLowerCase().trim();
-                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                let esProg = p.esProgramado || st.includes('programado');
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
                 return !esExpressO3Cruces && 
+                       !esProg &&
                        st !== 'listo para retirar (en ruta/cadete)' && 
                        !st.includes('entregado') && 
                        !st.includes('cerrado');
@@ -844,29 +866,47 @@
             pedidosActivos.sort((a, b) => b.id - a.id);
 
             let htmlPedidos = pedidosActivos.map(p => {
-                let itemsHtml = (p.items || []).map(i => `<div style="font-size:13px; border-bottom:1px dashed #eee; padding:4px 0;"><span><b>${i.cantidad || 1}x</b> ${i.nombre}</span></div>`).join('') || `<p style="font-size:13px;">${p.descripcion || ''}</p>`;
+                let itemsHtml = (p.items || []).map(i => `
+                    <div style="font-size:13px; border-bottom:1px dashed #e5e7eb; padding:6px 0; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <b style="color:var(--primary); font-size:14px;">${i.cantidad || 1}x</b> 
+                            <span style="font-weight:600; color:#111827;">${i.nombre}</span>
+                            ${i.outlet ? '<span class="badge-outlet" style="margin-left:4px;">Outlet</span>' : ''}
+                            ${i.observacion ? `<div style="font-size:11px; color:#D97706; margin-top:2px;">💬 Nota: ${i.observacion}</div>` : ''}
+                        </div>
+                        <span style="font-weight:700; color:var(--success); font-size:13px;">$${(i.precio || 0) * (i.cantidad || 1)}</span>
+                    </div>
+                `).join('') || `<p style="font-size:13px; color:#444; margin:4px 0;"><b>Descripción:</b> ${p.descripcion || 'Sin detalle especificado'}</p>`;
 
                 let btnEstado1Texto = emp.giro === 'Gastronomía' ? 'En Cocina' : 'En Preparación';
 
                 return `
-                    <div style="background:#fff; border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:var(--radius); padding:15px; margin-bottom:15px;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                            <strong style="color:var(--primary);">Pedido #${p.id}</strong>
-                            <span style="font-size:11px; background:#eef2f6; padding:4px 8px; border-radius:6px; font-weight:bold;">${p.estado || 'Recibido'}</span>
+                    <div style="background:#fff; border:1px solid var(--border); border-left:4px solid var(--primary); border-radius:var(--radius); padding:15px; margin-bottom:15px; box-shadow:var(--shadow-subtle);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <strong style="color:var(--primary); font-size:15px;">Pedido #${p.id.toString().slice(-4)}</strong>
+                            <span style="font-size:11px; background:#eef2f6; color:var(--secondary); padding:4px 8px; border-radius:6px; font-weight:bold;">${p.estado || 'Recibido'}</span>
                         </div>
-                        <p style="margin:4px 0; font-size:13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || ''})</p>
-                        <p style="margin:4px 0; font-size:13px;">📍 <b>Destino:</b> ${p.direccion}</p>
-                        <div style="background:#fdfdfd; border:1px solid #eee; padding:8px; border-radius:6px; margin:6px 0;">${itemsHtml}</div>
+                        <p style="margin:4px 0; font-size:13px;">👤 <b>Cliente:</b> ${p.cliente} (<a href="tel:${p.telefonoCliente || ''}" style="color:var(--primary);">${p.telefonoCliente || 'Sin tel'}</a>)</p>
+                        <p style="margin:4px 0 8px 0; font-size:13px;">📍 <b>Destino:</b> ${p.direccion}</p>
                         
-                        <div style="display:flex; gap:6px; margin-top:10px;">
-                            <button type="button" onclick="cambiarEstadoPedido(${p.id}, '${btnEstado1Texto}')" style="flex:1; padding:8px; font-size:11px; background:var(--warning); color:#000;">${btnEstado1Texto}</button>
-                            <button type="button" onclick="cambiarEstadoPedido(${p.id}, 'Listo para Retirar (En Ruta/Cadete)')" style="flex:1; padding:8px; font-size:11px; background:var(--success);">Liberar (Esperando Cadete)</button>
+                        <div style="background:#f9fafb; border:1px solid #e5e7eb; padding:10px; border-radius:8px; margin:8px 0;">
+                            <p style="margin:0 0 6px 0; font-size:11px; font-weight:bold; color:#6b7280; text-transform:uppercase;">🛒 Detalle del Pedido / Elaboración:</p>
+                            ${itemsHtml}
+                            <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:6px; border-top:1px solid #d1d5db; font-size:13px;">
+                                <b>Total Orden:</b>
+                                <b style="color:var(--primary);">$${p.total || 0}</b>
+                            </div>
+                        </div>
+                        
+                        <div style="display:flex; gap:6px; margin-top:12px;">
+                            <button type="button" onclick="cambiarEstadoPedido(${p.id}, '${btnEstado1Texto}')" style="flex:1; padding:10px 8px; font-size:12px; background:var(--warning); color:#000;">${btnEstado1Texto}</button>
+                            <button type="button" onclick="cambiarEstadoPedido(${p.id}, 'Listo para Retirar (En Ruta/Cadete)')" style="flex:1; padding:10px 8px; font-size:12px; background:var(--success);">Liberar (Pedir Cadete) 🚀</button>
                         </div>
                     </div>
                 `;
-            }).join('') || `<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos activos.</p>`;
+            }).join('') || `<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos activos en este momento.</p>`;
 
-            let tituloSeccion = emp.giro === 'Gastronomía' ? '🍳 Pedidos en Cocina' : '🛎️ Pedidos en Preparación';
+            let tituloCocina = emp.giro === 'Gastronomía' ? '🍳 Pedidos en Cocina' : '🛎️ Pedidos en Preparación';
 
             container.innerHTML = `
                 <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
@@ -874,13 +914,9 @@
                 </button>
                 <div id="bandera-vista-pedidos"></div>
                 
-                <div style="display:flex; gap:8px; margin-bottom:15px;">
-                    <button type="button" style="flex:1; padding:10px; font-size:12px; background:var(--primary);">${emp.giro === 'Gastronomía' ? '🍳 Cocina' : '🛎️ Pedidos'}</button>
-                    <button type="button" onclick="mostrarPedidosEnRutaComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">🛵 Esperando Cadete</button>
-                    <button type="button" onclick="mostrarHistorialFinancieroComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">✅ Finalizados</button>
-                </div>
+                ${renderizarSubMenuComercio(0)}
 
-                <div class="section-title"><span>${tituloSeccion}</span></div>
+                <div class="section-title"><span>${tituloCocina}</span></div>
                 ${htmlPedidos}
             `;
         }
@@ -893,19 +929,22 @@
             sincronizarEstadosCadeteLocales();
             const container = document.getElementById('main-content-empresa');
             let pedidosEnRuta = (emp.pedidos || []).filter(p => {
-                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
                 return !esExpressO3Cruces && p.estado === 'Listo para Retirar (En Ruta/Cadete)';
             });
             pedidosEnRuta.sort((a, b) => b.id - a.id);
 
             let htmlRuta = pedidosEnRuta.map(p => `
-                <div style="background:#fff; border:1px solid var(--border); border-left:4px solid var(--success); border-radius:var(--radius); padding:15px; margin-bottom:15px;">
-                    <strong style="color:var(--success);">Pedido #${p.id} (Liberado)</strong>
-                    <p style="margin:4px 0; font-size:13px;">👤 <b>Cliente:</b> ${p.cliente}</p>
-                    <p style="margin:4px 0; font-size:13px;">📍 <b>Destino:</b> ${p.direccion}</p>
-                    <p style="margin:4px 0; font-size:13px; color:var(--secondary);">🔑 <b>PIN:</b> ${p.codigoVerificacion}</p>
+                <div style="background:#fff; border:1px solid var(--border); border-left:4px solid var(--success); border-radius:var(--radius); padding:15px; margin-bottom:15px; box-shadow:var(--shadow-subtle);">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <strong style="color:var(--success); font-size:15px;">Pedido #${p.id.toString().slice(-4)} (Liberado)</strong>
+                        <span style="font-size:11px; background:#ecfdf5; color:var(--success); padding:4px 8px; border-radius:6px; font-weight:bold;">Esperando Cadete</span>
+                    </div>
+                    <p style="margin:6px 0 2px 0; font-size:13px;">👤 <b>Cliente:</b> ${p.cliente}</p>
+                    <p style="margin:2px 0; font-size:13px;">📍 <b>Destino:</b> ${p.direccion}</p>
+                    <p style="margin:6px 0 0 0; font-size:13px; color:var(--secondary);">🔑 <b>PIN de Seguridad:</b> <span style="font-size:16px; font-weight:bold; letter-spacing:2px;">${p.codigoVerificacion || '1234'}</span></p>
                 </div>
-            `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos esperando cadete.</p>';
+            `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos esperando cadete actualmente.</p>';
 
             container.innerHTML = `
                 <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
@@ -913,19 +952,91 @@
                 </button>
                 <div id="bandera-vista-envios"></div>
                 
-                <div style="display:flex; gap:8px; margin-bottom:15px;">
-                    <button type="button" onclick="mostrarPedidosEntrantesComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">${emp.giro === 'Gastronomía' ? '🍳 Cocina' : '🛎️ Pedidos'}</button>
-                    <button type="button" style="flex:1; padding:10px; font-size:12px; background:var(--primary);">🛵 Esperando Cadete</button>
-                    <button type="button" onclick="mostrarHistorialFinancieroComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">✅ Finalizados</button>
-                </div>
+                ${renderizarSubMenuComercio(1)}
 
                 <div class="section-title"><span>🛵 Esperando Retiro de Cadete</span></div>
                 ${htmlRuta}
             `;
         }
 
-        function mostrarHistorialFinancieroComercio() {
+        function mostrarPedidosProgramadosComercio() {
             actualizarMenuActivoEmpresa(4);
+            let emp = obtenerEmpresaActualizada();
+            if (!emp) return;
+
+            sincronizarEstadosCadeteLocales();
+            const container = document.getElementById('main-content-empresa');
+            
+            let pedidosProgramados = (emp.pedidos || []).filter(p => {
+                let st = (p.estado || '').toLowerCase().trim();
+                let esProg = p.esProgramado || st.includes('programado');
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
+                return !esExpressO3Cruces && esProg && !st.includes('entregado') && !st.includes('cerrado');
+            });
+            pedidosProgramados.sort((a, b) => b.id - a.id);
+
+            let htmlProg = pedidosProgramados.map(p => {
+                let itemsHtml = (p.items || []).map(i => `
+                    <div style="font-size:13px; border-bottom:1px dashed #fcd34d; padding:4px 0; display:flex; justify-content:space-between;">
+                        <span><b>${i.cantidad || 1}x</b> ${i.nombre}</span>
+                        <b>$${(i.precio || 0) * (i.cantidad || 1)}</b>
+                    </div>
+                `).join('') || `<p style="font-size:13px;">${p.descripcion || ''}</p>`;
+
+                return `
+                    <div style="background:#FFFBEB; border:1px solid #FCD34D; border-left:4px solid #F59E0B; border-radius:var(--radius); padding:15px; margin-bottom:15px; box-shadow:var(--shadow-subtle);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <strong style="color:#B45309;">Pedido Programado #${p.id.toString().slice(-4)}</strong>
+                            <span style="font-size:11px; background:#FEF3C7; color:#B45309; padding:4px 8px; border-radius:6px; font-weight:bold;">🕒 ${p.horaProgramada || 'Para más tarde'}</span>
+                        </div>
+                        <p style="margin:4px 0; font-size:13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || ''})</p>
+                        <p style="margin:4px 0 8px 0; font-size:13px;">📍 <b>Destino:</b> ${p.direccion}</p>
+                        <div style="background:#fff; border:1px solid #fef3c7; padding:8px; border-radius:6px; margin:6px 0;">${itemsHtml}</div>
+                        
+                        <button type="button" onclick="pasarProgramadoAActivo(${p.id})" style="background:var(--primary); font-size:12px; margin-top:8px;">🚀 Activar y Pasar a Cocina / Preparación</button>
+                    </div>
+                `;
+            }).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">No hay pedidos programados.</p>';
+
+            container.innerHTML = `
+                <button type="button" class="btn-volver-atras" onclick="mostrarDashboardEmpresa()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
+                </button>
+                <div id="bandera-vista-programados"></div>
+                
+                ${renderizarSubMenuComercio(2)}
+
+                <div class="section-title"><span>🕒 Pedidos Programados para Más Tarde</span></div>
+                ${htmlProg}
+            `;
+        }
+
+        window.pasarProgramadoAActivo = function(idPedido) {
+            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+            let sesion = JSON.parse(localStorage.getItem('lt_sesion_empresa'));
+            let emp = base.find(e => String(e.rut).trim() === String(sesion.rut).trim());
+            let pedido = emp.pedidos.find(p => Number(p.id) === Number(idPedido));
+
+            if (pedido) {
+                pedido.esProgramado = false;
+                pedido.estado = emp.giro === 'Gastronomía' ? 'En Cocina' : 'En Preparación';
+                localStorage.setItem('lt_base_empresas', JSON.stringify(base));
+                localStorage.setItem('lt_sesion_empresa', JSON.stringify(emp));
+
+                fetch(`${BACKEND_URL}/api/pedidos`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(pedido)
+                }).catch(e => {});
+
+                window.dispatchEvent(new Event('storage'));
+                showToast("¡Pedido programado activado con éxito!");
+                mostrarPedidosEntrantesComercio();
+            }
+        };
+
+        function mostrarHistorialFinancieroComercio() {
+            actualizarMenuActivoEmpresa(5);
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
@@ -933,18 +1044,18 @@
             const container = document.getElementById('main-content-empresa');
             let pedidosCerrados = (emp.pedidos || []).filter(p => {
                 let st = (p.estado || '').toLowerCase().trim();
-                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces;
+                let esExpressO3Cruces = p.tipoPedido === 'express' || p.tipoPedido === 'tres_cruces' || p.esTresCruces || !p.rutComercio;
                 return !esExpressO3Cruces && (st.includes('entregado') || st.includes('cerrado'));
             });
             pedidosCerrados.sort((a, b) => b.id - a.id);
 
             let htmlHistorial = pedidosCerrados.map(p => `
-                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:10px; font-size:13px;">
+                <div style="background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px; margin-bottom:10px; font-size:13px; box-shadow:var(--shadow-subtle);">
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <b>Pedido #${p.id}</b>
+                        <b>Pedido #${p.id.toString().slice(-4)}</b>
                         <span style="color:var(--success); font-weight:bold;">Entregado ✓</span>
                     </div>
-                    <p style="margin:2px 0; color:#555;">Cliente: ${p.cliente} | Total: <b>$${p.total}</b></p>
+                    <p style="margin:2px 0; color:#555;">Cliente: ${p.cliente} | Total: <b>$${p.total || 0}</b></p>
                 </div>
             `).join('') || '<p style="text-align:center; color:#666; margin-top:30px;">Aún no hay pedidos finalizados.</p>';
 
@@ -953,19 +1064,28 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Volver al Dashboard
                 </button>
                 
-                <div style="display:flex; gap:8px; margin-bottom:15px;">
-                    <button type="button" onclick="mostrarPedidosEntrantesComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">${emp.giro === 'Gastronomía' ? '🍳 Cocina' : '🛎️ Pedidos'}</button>
-                    <button type="button" onclick="mostrarPedidosEnRutaComercio()" style="flex:1; padding:10px; font-size:12px; background:#E5E7EB; color:var(--text-main);">🛵 Esperando Cadete</button>
-                    <button type="button" style="flex:1; padding:10px; font-size:12px; background:var(--primary);">✅ Finalizados</button>
-                </div>
+                ${renderizarSubMenuComercio(3)}
 
                 <div class="section-title"><span>✅ Pedidos Finalizados y Entregados</span></div>
                 ${htmlHistorial}
             `;
         }
 
+        function renderizarSubMenuComercio(activoIdx) {
+            let emp = obtenerEmpresaActualizada();
+            let labelCocina = emp && emp.giro === 'Gastronomía' ? '🍳 Cocina' : '🛎️ Pedidos';
+            return `
+                <div style="display:flex; gap:6px; margin-bottom:15px; overflow-x:auto; padding-bottom:4px;">
+                    <button type="button" onclick="mostrarPedidosEntrantesComercio()" style="flex:1; padding:8px 10px; font-size:11px; background:${activoIdx === 0 ? 'var(--primary)' : '#E5E7EB'}; color:${activoIdx === 0 ? '#FFF' : 'var(--text-main)'}; white-space:nowrap; border-radius:8px; border:none; font-weight:bold; cursor:pointer;">${labelCocina}</button>
+                    <button type="button" onclick="mostrarPedidosEnRutaComercio()" style="flex:1; padding:8px 10px; font-size:11px; background:${activoIdx === 1 ? 'var(--primary)' : '#E5E7EB'}; color:${activoIdx === 1 ? '#FFF' : 'var(--text-main)'}; white-space:nowrap; border-radius:8px; border:none; font-weight:bold; cursor:pointer;">🛵 Cadete</button>
+                    <button type="button" onclick="mostrarPedidosProgramadosComercio()" style="flex:1; padding:8px 10px; font-size:11px; background:${activoIdx === 2 ? 'var(--primary)' : '#E5E7EB'}; color:${activoIdx === 2 ? '#FFF' : 'var(--text-main)'}; white-space:nowrap; border-radius:8px; border:none; font-weight:bold; cursor:pointer;">🕒 Programados</button>
+                    <button type="button" onclick="mostrarHistorialFinancieroComercio()" style="flex:1; padding:8px 10px; font-size:11px; background:${activoIdx === 3 ? 'var(--primary)' : '#E5E7EB'}; color:${activoIdx === 3 ? '#FFF' : 'var(--text-main)'}; white-space:nowrap; border-radius:8px; border:none; font-weight:bold; cursor:pointer;">✅ Historial</button>
+                </div>
+            `;
+        }
+
         function mostrarPerfilEmpresa() {
-            actualizarMenuActivoEmpresa(5);
+            actualizarMenuActivoEmpresa(6);
             let emp = obtenerEmpresaActualizada();
             if (!emp) return;
 
