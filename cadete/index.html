@@ -444,9 +444,8 @@
             <button class="nav-item" onclick="cerrarSesionCadete()"><span>🚪</span>Salir</button>
         </div>
     </div>
-
     <script>
-        const BACKEND_URL = window.location.origin.includes('localhost') ? "http://localhost:3000" : window.location.origin;
+        const BACKEND_URL = window.location.origin.includes('localhost') ? "http://localhost:3000" : window.location.origin.trim();
         let socket = null;
         let ofertaActualWS = null;
         let timerOfertaInterval = null;
@@ -490,30 +489,42 @@
         });
 
         function inicializarSocketIO() {
-            socket = io(BACKEND_URL);
+            try {
+                socket = io(BACKEND_URL, {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true
+                });
 
-            socket.on('connect', () => {
-                console.log("⚡ Conectado al WebSocket del Servidor LO TENGO");
-                let cadete = obtenerCadeteActualizado();
-                if (cadete) {
-                    socket.emit('registrar_cadete', { id: cadete.ci, nombre: cadete.nombre });
-                }
-            });
+                socket.on('connect', () => {
+                    console.log("⚡ Conectado al WebSocket del Servidor LO TENGO");
+                    let cadete = obtenerCadeteActualizado();
+                    if (cadete) {
+                        socket.emit('registrar_cadete', { id: cadete.ci, nombre: cadete.nombre });
+                    }
+                });
 
-            socket.on('oferta_envio_cercano', (data) => {
-                ofertaActualWS = data.pedido;
-                mostrarModalOferta(data.pedido, data.tiempoLimiteSec || 30);
-            });
+                socket.on('oferta_envio_cercano', (data) => {
+                    ofertaActualWS = data.pedido;
+                    mostrarModalOferta(data.pedido, data.tiempoLimiteSec || 30);
+                });
 
-            socket.on('cuenta_suspendida', (data) => {
-                alert(`⚠️ ATENCIÓN: Tu cuenta ha sido suspendida temporalmente por 1 hora.\n\nMotivo: ${data.motivo}`);
-            });
+                socket.on('cuenta_suspendida', (data) => {
+                    alert(`⚠️ ATENCIÓN: Tu cuenta ha sido suspendida temporalmente por 1 hora.\n\nMotivo: ${data.motivo}`);
+                });
 
-            socket.on('pedido_entregado_exito', (pedido) => {
-                reproducirAlertaVoz("Lo tengo");
-                mostrarBurbujaEmergente("🎉 ¡Entrega Exitosa!", `Pedido #${pedido.id.toString().slice(-4)} cerrado correctamente.`);
-                mostrarEnCursoCadete();
-            });
+                socket.on('pedido_entregado_exito', (pedido) => {
+                    reproducirAlertaVoz("Lo tengo");
+                    mostrarBurbujaEmergente("🎉 ¡Entrega Exitosa!", `Pedido #${pedido.id.toString().slice(-4)} cerrado correctamente.`);
+                    mostrarEnCursoCadete();
+                });
+
+                socket.on('mensaje_admin', (data) => {
+                    reproducirAlertaVoz("Mensaje de administración");
+                    mostrarBurbujaEmergente("💬 Aviso de Administración", data.texto || "Nueva notificación de soporte.");
+                });
+            } catch (e) {
+                console.log("Error al iniciar socket:", e);
+            }
         }
 
         function mostrarModalOferta(pedido, tiempoSec) {
@@ -999,7 +1010,6 @@
                 let faseActual = p.estado || 'En camino a origen';
                 let esFaseOrigen = faseActual.includes('origen') || faseActual.includes('retirar');
                 
-                // DETECCIÓN ROBUSTA DE TIPO DE SERVICIO
                 let servicio = p.tipoServicio || (p.esTresCruces || ((p.direccionCliente || '') + ' ' + (p.direccion || '')).toLowerCase().includes('tres cruces') ? 'tres_cruces' : (!p.rutComercio ? 'express_ab' : 'comercio'));
                 let esTresCruces = servicio === 'tres_cruces';
                 let esExpressAB = servicio === 'express_ab';
@@ -1012,20 +1022,28 @@
                     </div>
 
                     ${esFaseOrigen ? `
-                        <!-- FASE 1: EN CAMINO A ORIGEN -->
+                        <!-- FASE 1: EN CAMINO A ORIGEN CON BOTÓN DINÁMICO DE NAVEGACIÓN -->
                         <div style="background:#fdf8f6; border:1.5px dashed var(--secondary); padding:12px; border-radius:10px; margin-top:10px;">
                             <p style="margin: 0 0 4px 0; font-size: 12px; font-weight:bold; color:var(--secondary);">📍 TRAMO 1: RETIRO EN ORIGEN</p>
                             <p style="margin: 4px 0; font-size: 14px;">🏪 <b>Retirar en:</b> ${p.comercio || p.empresaNombre || 'Origen'}</p>
                             <p style="margin: 2px 0; font-size: 13px; color:#555;">📍 <b>Dirección:</b> ${p.direccionComercio || p.direccion || 'Montevideo'}</p>
 
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.direccionComercio || p.direccion || 'Montevideo')}" target="_blank" style="display:block; text-decoration:none; background:var(--primary); color:white; padding:10px; border-radius:8px; font-size:13px; font-weight:bold; text-align:center; margin: 10px 0 8px 0;">
+                                🧭 Ir a Origen (Retirar)
+                            </a>
+
                             <button type="button" onclick="avanzarAEnCaminoDestino('${p.id}')" style="background: var(--secondary);">📦 Ya retiré / Recibí el paquete</button>
                         </div>
                     ` : `
-                        <!-- FASE 2: EN CAMINO A DESTINO -->
+                        <!-- FASE 2: EN CAMINO A DESTINO CON BOTÓN DINÁMICO DE NAVEGACIÓN -->
                         <div style="background:#f0fdf4; border:1.5px solid var(--success); padding:12px; border-radius:10px; margin-top:10px;">
                             <p style="margin: 0 0 4px 0; font-size: 12px; font-weight:bold; color:var(--success);">📍 TRAMO 2: ENTREGA A DESTINO</p>
                             <p style="margin: 4px 0; font-size: 13px;">👤 <b>Cliente:</b> ${p.cliente} (${p.telefonoCliente || 'Sin tel'})</p>
-                            <p style="margin: 2px 0 10px 0; font-size: 13px;">📍 <b>Destino:</b> ${p.direccionCliente || p.direccion}</p>
+                            <p style="margin: 2px 0 6px 0; font-size: 13px;">📍 <b>Destino:</b> ${p.direccionCliente || p.direccion}</p>
+
+                            <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.direccionCliente || p.direccion || 'Montevideo')}" target="_blank" style="display:block; text-decoration:none; background:var(--success); color:white; padding:10px; border-radius:8px; font-size:13px; font-weight:bold; text-align:center; margin-bottom:8px;">
+                                🧭 Ir a Destino (Entregar)
+                            </a>
 
                             <a href="https://wa.me/598${p.telefonoCliente || '99000000'}?text=${encodeURIComponent('Hola ' + p.cliente + ', soy tu cadete de Lo Tengo. Voy en camino con tu pedido.')}" target="_blank" class="btn-whatsapp" style="text-decoration:none; color:white; padding:8px 10px; border-radius:8px; font-size:12px; font-weight:bold; text-align:center; margin-bottom:10px;">
                                 💬 Abrir WhatsApp con el Cliente
@@ -1124,7 +1142,6 @@
             document.getElementById(`rol-receptor-${idPedido}`).value = rol;
         };
 
-        // CIERRE SEGURO 1: PIN DE COMERCIO (Conecta con backend y valida)
         window.finalizarEntregaPin = async function(idPedido) {
             let pinInput = document.getElementById(`pin-ingresado-${idPedido}`);
             let pinVal = pinInput ? pinInput.value.trim() : '';
@@ -1142,20 +1159,14 @@
                     alert(`❌ ${data.message || 'PIN incorrecto. Verifique con el cliente.'}`);
                     return;
                 }
-            } catch (err) {
-                console.log("Validación local offline");
-            }
+            } catch (err) {}
 
             if (socket && socket.connected) {
-                socket.emit('completar_entrega_pedido', {
-                    pedidoId: idPedido,
-                    pinIngresado: pinVal
-                });
+                socket.emit('completar_entrega_pedido', { pedidoId: idPedido, pinIngresado: pinVal });
             }
             procesarCierreLocal(idPedido);
         };
 
-        // CIERRE SEGURO 2: EXPRESS A ➔ B (Nombre y Cédula obligatorios)
         window.finalizarEntregaExpress = async function(idPedido) {
             let rol = document.getElementById(`rol-receptor-${idPedido}`).value;
             let nombre = document.getElementById(`nombre-receptor-${idPedido}`).value.trim();
@@ -1170,7 +1181,7 @@
                 let res = await fetch(`${BACKEND_URL}/api/pedidos/${idPedido}/estado`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ estado: 'entregado_cerrado', nombreReceptor: nombre, ciReceptor: ci })
+                    body: JSON.stringify({ estado: 'entregado_cerrado', nombreReceptor: nombre, ciReceptor: ci, rolReceptor: rol })
                 });
                 let data = await res.json();
                 if (!res.ok || !data.success) {
@@ -1180,15 +1191,11 @@
             } catch (err) {}
 
             if (socket && socket.connected) {
-                socket.emit('completar_entrega_pedido', {
-                    pedidoId: idPedido,
-                    receptorInfo: { rol, nombre, ci }
-                });
+                socket.emit('completar_entrega_pedido', { pedidoId: idPedido, receptorInfo: { rol, nombre, ci } });
             }
             procesarCierreLocal(idPedido);
         };
 
-        // CIERRE SEGURO 3: TRES CRUCES (Foto de remito obligatoria)
         window.finalizarEntregaTresCruces = async function(idPedido) {
             let foto = fotoRemitoTemp[idPedido];
             if (!foto) {
@@ -1210,10 +1217,7 @@
             } catch (err) {}
 
             if (socket && socket.connected) {
-                socket.emit('completar_entrega_pedido', {
-                    pedidoId: idPedido,
-                    fotoComprobante: foto
-                });
+                socket.emit('completar_entrega_pedido', { pedidoId: idPedido, fotoComprobante: foto });
             }
             procesarCierreLocal(idPedido);
         };
@@ -1298,6 +1302,11 @@
                     <p style="margin:0 0 4px 0; font-size:13px; color:#666;">📞 Tel: <b>${sesion.telefono || 'Sin tel'}</b></p>
                     <p style="margin:0; font-size:13px; color:#666;">Vehículo: <b>${sesion.vehiculo || 'Moto'}</b></p>
                 </div>
+
+                <!-- BOTÓN DE COMUNICACIÓN DIRECTA CON ADMINISTRACIÓN (WHATSAPP 099409697) -->
+                <a href="https://wa.me/598099409697?text=${encodeURIComponent('Hola Administración, soy el cadete ' + sesion.nombre + ' (CI: ' + sesion.ci + ') y necesito comunicarme con soporte de LO TENGO.')}" target="_blank" class="btn-whatsapp" style="text-decoration:none; color:white; padding:12px; border-radius:10px; font-size:14px; font-weight:bold; text-align:center; margin-bottom:12px; display:block;">
+                    💬 Contactar con Administración (Soporte)
+                </a>
 
                 <button type="button" onclick="cerrarSesionCadete()" style="background:var(--danger); font-weight:bold;">🚪 Cerrar Sesión</button>
             `;

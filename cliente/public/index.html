@@ -413,10 +413,10 @@
                     if (remotos && Array.isArray(remotos)) {
                         let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
                         if (base.length > 0) {
-                            let mapa = new Map();
-                            (base[0].pedidos || []).forEach(p => mapa.set(String(p.id).trim(), p));
-                            remotos.forEach(r => mapa.set(String(r.id).trim(), r));
-                            base[0].pedidos = Array.from(mapa.values());
+                            base.forEach(emp => {
+                                let pedidosComercio = remotos.filter(r => r.rutComercio && String(r.rutComercio).trim() === String(emp.rut).trim());
+                                emp.pedidos = pedidosComercio;
+                            });
                             localStorage.setItem('lt_base_empresas', JSON.stringify(base));
                         }
                     }
@@ -513,6 +513,7 @@
             localStorage.removeItem('lt_sesion_activa');
             location.reload();
         }
+
         function mostrarHome(filtroGiro = 'todos') {
             actualizarMenuActivo(0);
             const container = document.getElementById('main-content');
@@ -653,7 +654,50 @@
             `;
         }
 
+        function agregarAlCarrito(rut, productoId, delta) {
+            let itemsActuales = Object.values(carritoItems);
+            if (itemsActuales.length > 0) {
+                let primerRutEnCarrito = itemsActuales[0].empresaRut;
+                if (primerRutEnCarrito && String(primerRutEnCarrito).trim() !== String(rut).trim()) {
+                    if (!confirm("Tu carrito actual pertenece a otro comercio. ¿Deseás vaciarlo para iniciar un pedido en esta nueva tienda?")) {
+                        return;
+                    }
+                    carritoItems = {};
+                }
+            }
+
+            let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
+            let emp = base.find(e => e && String(e.rut).trim() === String(rut).trim());
+            if (!emp) return;
+            let p = (emp.productos || []).find(prod => Number(prod.id) === Number(productoId));
+            if (!p) return;
+
+            if (!carritoItems[productoId]) {
+                carritoItems[productoId] = { ...p, cantidad: 0, empresaRut: rut, empresaNombre: emp.nombre, nota: '' };
+            }
+            carritoItems[productoId].cantidad += delta;
+            if (carritoItems[productoId].cantidad <= 0) {
+                delete carritoItems[productoId];
+            }
+
+            let span = document.getElementById(`cant-prod-${productoId}`);
+            if (span) span.innerText = carritoItems[productoId] ? carritoItems[productoId].cantidad : 0;
+
+            showToast("¡Producto agregado al carrito de este comercio!");
+        }
+
         function modificarCantidadItem(rut, productoId, delta) {
+            let itemsActuales = Object.values(carritoItems);
+            if (itemsActuales.length > 0) {
+                let primerRutEnCarrito = itemsActuales[0].empresaRut;
+                if (primerRutEnCarrito && String(primerRutEnCarrito).trim() !== String(rut).trim()) {
+                    if (!confirm("Tu carrito actual pertenece a otro comercio. ¿Deseás vaciarlo para iniciar un pedido en esta nueva tienda?")) {
+                        return;
+                    }
+                    carritoItems = {};
+                }
+            }
+
             let base = JSON.parse(localStorage.getItem('lt_base_empresas')) || [];
             let emp = base.find(e => e && String(e.rut).trim() === String(rut).trim());
             if (!emp) return;
@@ -680,11 +724,21 @@
         }
 
         function agregarUpselling(rut, nombre, precio) {
+            let itemsActuales = Object.values(carritoItems);
+            if (itemsActuales.length > 0) {
+                let primerRutEnCarrito = itemsActuales[0].empresaRut;
+                if (primerRutEnCarrito && String(primerRutEnCarrito).trim() !== String(rut).trim()) {
+                    if (!confirm("Tu carrito actual pertenece a otro comercio. ¿Deseás vaciarlo para iniciar un pedido en esta nueva tienda?")) {
+                        return;
+                    }
+                    carritoItems = {};
+                }
+            }
+
             let idU = 'up-' + Date.now();
             carritoItems[idU] = { id: idU, nombre, precio, cantidad: 1, empresaRut: rut, empresaNombre: 'Upselling', nota: '' };
             showToast(`¡${nombre} agregado al carrito!`);
         }
-
         function verCheckoutCarrito(rutComercioDefault = '') {
             let itemsArray = Object.values(carritoItems);
             if (itemsArray.length === 0) {
@@ -877,12 +931,12 @@
                     <div id="card-moto" class="vehiculo-card-opcion seleccionado" onclick="setVehiculoCadete('moto')">
                         <div style="font-size:26px; margin-bottom:4px;">🏍️</div>
                         <div style="font-size:14px; font-weight:900;">Moto</div>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $230 + IVA (hasta 8km)</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $190 + impuesto (hasta 8km)</div>
                     </div>
                     <div id="card-camioneta" class="vehiculo-card-opcion" onclick="setVehiculoCadete('camioneta')">
                         <div style="font-size:26px; margin-bottom:4px;">🚐</div>
                         <div style="font-size:14px; font-weight:900;">Camioneta</div>
-                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $390 + IVA (hasta 10km)</div>
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Base $390 + impuesto (hasta 10km)</div>
                     </div>
                 </div>
 
@@ -958,10 +1012,10 @@
 
         function verificarPesoYVehiculo() {
             let peso = parseFloat(document.getElementById('cadPeso').value) || 0;
-            if (peso > 25) {
+            if (peso > 15) {
                 if (tipoVehiculoCadete !== 'camioneta') {
                     setVehiculoCadete('camioneta');
-                    showToast("⚠️ Peso mayor a 25 kg: asignado automáticamente a Camioneta", "error");
+                    showToast("⚠️ Peso mayor a 15 kg: asignado automáticamente a Camioneta", "error");
                 }
             }
             actualizarCalculoConMapa();
@@ -1029,13 +1083,12 @@
                 if (panel) panel.innerHTML = `📍 Completá origen y destino para calcular la distancia y tarifa.`;
                 return;
             }
-
             let distanciaKm = 5; 
             if (origen.toLowerCase().includes('pocitos') && destino.toLowerCase().includes('carrasco')) distanciaKm = 9;
             else if (origen.toLowerCase().includes('centro') && destino.toLowerCase().includes('tres cruces')) distanciaKm = 3;
             else if (origen.length > 15 && destino.length > 15) distanciaKm = 6;
 
-            let tarifaBase = tipoVehiculoCadete === 'moto' ? 230 : 390;
+            let tarifaBase = tipoVehiculoCadete === 'moto' ? 190 : 390;
             let kmIncluidos = tipoVehiculoCadete === 'moto' ? 8 : 10;
             let costoAdicionalKm = 0;
 
@@ -1056,7 +1109,7 @@
                         <b>~${distanciaKm} km (${kmIncluidos} km incluidos)</b>
                     </div>
                     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                        <span>Tarifa Base (${tipoVehiculoCadete}) + IVA:</span>
+                        <span>Tarifa Base (${tipoVehiculoCadete}) + impuesto:</span>
                         <b>$${tarifaBase}</b>
                     </div>
                     ${costoAdicionalKm > 0 ? `<div style="display:flex; justify-content:space-between; margin-bottom:4px; color:var(--warning);"><span>Adicional por km extra:</span><b>+$${costoAdicionalKm}</b></div>` : ''}
@@ -1093,7 +1146,7 @@
                 return;
             }
 
-            let tarifaBase = tipoVehiculoCadete === 'moto' ? 230 : 390;
+            let tarifaBase = tipoVehiculoCadete === 'moto' ? 190 : 390;
             let kmIncluidos = tipoVehiculoCadete === 'moto' ? 8 : 10;
             let distanciaKm = 5;
             let precioKmExtra = tipoVehiculoCadete === 'moto' ? 15 : 20;
@@ -1178,10 +1231,17 @@
 
                 let comprobanteHtml = '';
                 if (esFinalizado) {
+                    let fotoRemitoUrl = p.fotoRemito || p.fotoComprobante || '';
                     comprobanteHtml = `
-                        <div style="background:#F0FDF4; border:1px solid #10B981; padding:10px; border-radius:8px; margin-top:10px; font-size:12px; color:#047857;">
+                        <div style="background:#F0FDF4; border:1.5px solid #10B981; padding:12px; border-radius:8px; margin-top:10px; font-size:12px; color:#047857;">
                             <b>✅ Comprobante / Garantía de Entrega:</b><br>
-                            ${p.fotoRemito ? `<img src="${p.fotoRemito}" style="width:100%; max-height:120px; object-fit:cover; border-radius:6px; margin-top:6px;">` : 'Servicio finalizado y validado con éxito.'}
+                            ${fotoRemitoUrl ? `
+                                <img src="${fotoRemitoUrl}" style="width:100%; max-height:160px; object-fit:cover; border-radius:6px; margin-top:8px; border:1px solid #10B981;">
+                                <div style="display:flex; gap:6px; margin-top:8px;">
+                                    <a href="${fotoRemitoUrl}" download="Remito-LO-TENGO-${p.id}.jpg" target="_blank" style="flex:1; background:#059669; color:white; padding:8px; border-radius:6px; text-decoration:none; text-align:center; font-weight:bold; display:block;">📥 Descargar</a>
+                                    <button type="button" onclick="compartirRemitoWhatsApp('${fotoRemitoUrl}', '${p.id}')" style="flex:1; background:#25D366; color:white; padding:8px; border-radius:6px; font-weight:bold; border:none; cursor:pointer; box-shadow:none;">💬 Compartir</button>
+                                </div>
+                            ` : 'Servicio finalizado y validado con éxito.'}
                         </div>
                     `;
                 }
@@ -1258,6 +1318,16 @@
                 `;
             }
         }
+
+        window.compartirRemitoWhatsApp = function(urlFoto, idPedido) {
+            let texto = `📄 Aquí tenés el comprobante / remito de entrega del envío LO TENGO (#${idPedido.toString().slice(-4)}): ${urlFoto}`;
+            if (navigator.share) {
+                navigator.share({ title: 'Comprobante LO TENGO', text: texto, url: urlFoto }).catch(() => {});
+            } else {
+                navigator.clipboard.writeText(texto);
+                showToast("¡Enlace del comprobante copiado al portapapeles!");
+            }
+        };
 
         window.enviarCalificacionPedido = function(idPedido, estrellas) {
             let comentario = document.getElementById(`comentario-${idPedido}`).value.trim();
