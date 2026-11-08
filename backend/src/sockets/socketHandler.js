@@ -6,9 +6,9 @@ function iniciarDespachoInteligente(pedido, io) {
   let origenLat = pedido.origenLat || -34.9032;
   let origenLng = pedido.origenLng || -56.1882;
 
-  // SÓLO si es un pedido de comercio usamos las coordenadas de la empresa
-  if (pedido.tipoServicio === 'comercio' && pedido.rutComercio) {
-    let emp = baseEmpresas.find(e => String(e.rut).trim() === String(pedido.rutComercio).trim());
+  // Si tiene idEmpresa buscamos las coordenadas físicas del comercio
+  if (pedido.idEmpresa) {
+    let emp = baseEmpresas.find(e => e.idEmpresa === pedido.idEmpresa);
     if (emp && emp.lat && emp.lng) {
       origenLat = emp.lat;
       origenLng = emp.lng;
@@ -103,8 +103,8 @@ function configurarSockets(io) {
           despacho.pedido.idCadete = cadeteInfo.id;
           despacho.pedido.nombreCadete = cadeteInfo.nombre;
 
-          // ASIGNACIÓN DE ESTADO SEGÚN EL CARRIL CORRECTO
-          const esComercio = despacho.pedido.tipoServicio === 'comercio' && despacho.pedido.rutComercio;
+          // ASIGNACIÓN DE ESTADO ESTRICTA SEGÚN EL CARRIL
+          const esComercio = Boolean(despacho.pedido.idEmpresa);
           despacho.pedido.estado = esComercio ? 'en_camino_a_retirar_local' : 'pendiente_retiro_origen';
 
           if (!cajaCadetes[cadeteInfo.id]) {
@@ -113,6 +113,7 @@ function configurarSockets(io) {
           cajaCadetes[cadeteInfo.id].gananciasEnvios += despacho.pedido.gananciaCadete;
           cajaCadetes[cadeteInfo.id].historial.push(despacho.pedido);
 
+          // Emitimos el pedido con su origen y estado correcto
           io.emit('pedido_asignado', despacho.pedido);
           delete despachosActivos[pedidoId];
         }
@@ -162,10 +163,6 @@ function configurarSockets(io) {
 
     socket.on('cambiar_estado_pedido', (data) => {
       io.emit('actualizacion_pedido', data);
-    });
-
-    socket.on('broadcast_campana_clientes', (campania) => {
-      io.emit('nueva_campana_push', campania);
     });
 
     socket.on('disconnect', () => {
